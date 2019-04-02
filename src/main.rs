@@ -8,6 +8,8 @@ use stm32f7_discovery::{
     gpio::{OutputPin, GpioPort},
     init,
     system_clock::{self, Hz},
+    lcd::{Color},
+
 };
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use alloc_cortex_m::CortexMHeap;
@@ -44,8 +46,8 @@ fn main() -> ! {
     let mut pwr = peripherals.PWR;
     let mut flash = peripherals.FLASH;
 
-    //let mut fmc = peripherals.FMC;
-    //let mut ltdc = peripherals.LTDC;
+    let mut fmc = peripherals.FMC;
+    let mut ltdc = peripherals.LTDC;
     //let mut sai_2 = peripherals.SAI2;
     //let mut rng = peripherals.RNG;
     //let mut sdmmc = peripherals.SDMMC1;
@@ -79,12 +81,21 @@ fn main() -> ! {
     init::init_systick(Hz(20), &mut systick, &rcc);
     systick.enable_interrupt();
 
-    //init::init_sdram(&mut rcc, &mut fmc);
-    //let mut lcd = init::init_lcd(&mut ltdc, &mut rcc);
-    //pins.display_enable.set(true);
-    //pins.backlight.set(true);
+    init::init_sdram(&mut rcc, &mut fmc);
+    let mut lcd = init::init_lcd(&mut ltdc, &mut rcc);
+    pins.display_enable.set(true);
+    pins.backlight.set(true);
 //
     //// Initialize the allocator BEFORE you use it
     //unsafe { ALLOCATOR.init(rt::heap_start() as usize, HEAP_SIZE) }
+    lcd.set_background_color(Color::from_hex(0x660000));
+
+    let mut layer_1 = lcd.layer_1().unwrap();
+    let mut layer_2 = lcd.layer_2().unwrap();
+    layer_1.clear();
+    layer_2.clear();
+
+    loop {
+    }
 
 }
