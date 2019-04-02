@@ -1,8 +1,11 @@
+cargo-features = ["default-run"]
+
 [package]
 name = "rust_game"
 version = "0.1.0"
 authors = ["benheid <benheid@users.noreply.guthub.com>", "SergenCiftci"]
 edition = "2018"
+default-run = "polling"
 
 [dependencies]
 cortex-m = "0.5.0"
