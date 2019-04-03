@@ -1,11 +1,14 @@
 #![no_std]
 #![no_main]
 #![feature(alloc_error_handler)]
+#![feature(alloc)]
 
 #[macro_use]
 extern crate stm32f7;
 #[macro_use]
 extern crate stm32f7_discovery;
+#[macro_use]
+extern crate alloc;
 
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
@@ -97,6 +100,7 @@ fn main() -> ! {
     layer_1.clear();
     layer_2.clear();
     let mut b = Box::new(30, 30, 150, 2, 2);
+    let mut b2 = Box::new(30, 150, 100, -1, -2);
     let OFFSET = 20;
     let HEIGHT = 252;
     let WIDTH = 460;
@@ -107,16 +111,21 @@ fn main() -> ! {
     }
 
     b.render(&mut layer_1);
+    b2.render(&mut layer_1);
 
+    let mut boxes = vec!(b,b2);
     let mut counter = 0;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     loop {
         let ticks = system_clock::ticks();
         if ticks - last_render >= 1 {
-            b.derender(&mut layer_1, Color::from_hex(0xffffff));
-            b.next();
-            b.render(&mut layer_1);
+            for b in &mut boxes {
+                let b : &mut Box = b;
+                b.derender(&mut layer_1, Color::from_hex(0xffffff));
+                b.next();
+                b.render(&mut layer_1);
+            }
             last_render = ticks;
         }
 
