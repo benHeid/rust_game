@@ -10,7 +10,7 @@ extern crate stm32f7_discovery;
 #[macro_use]
 extern crate alloc;
 
-const IMG: [u8; 300 * 168 * 3] = *include_bytes!("download.data");
+//const IMG: [u8; 300 * 168 * 3] = *include_bytes!("download.data");
 
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
@@ -24,9 +24,12 @@ use stm32f7_discovery::{
     system_clock::{self, Hz},
     touch,
 };
+use math;
+
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
+const HEAP_SIZE: usize = 50 * 1024; // in bytes
 
 #[alloc_error_handler]
 fn rust_oom(_: AllocLayout) -> ! {
@@ -95,15 +98,17 @@ fn main() -> ! {
     pins.backlight.set(true);
     //
     //// Initialize the allocator BEFORE you use it
-    //unsafe { ALLOCATOR.init(rt::heap_start() as usize, HEAP_SIZE) }
+    unsafe { ALLOCATOR.init(cortex_m_rt::heap_start() as usize, HEAP_SIZE) }
     //lcd.set_background_color(Color::from_hex(0x660000));
 
     let mut layer_1 = lcd.layer_1().unwrap();
     let mut layer_2 = lcd.layer_2().unwrap();
     layer_1.clear();
     layer_2.clear();
-    let mut b = Box::new(30, 200, 100, 0, 0);
+    let mut b = Box::new(30, 200, 100, 2, 2);
     let mut b2 = Box::new(30, 150, 100, -1, -2);
+    let mut b3 = Box::new(30, 200, 100, -1, 2);
+    let mut b4 = Box::new(30, 300, 100, 2, -2);
     let OFFSET = 20;
     let HEIGHT = 252;
     let WIDTH = 460;
@@ -116,7 +121,7 @@ fn main() -> ! {
     b.render(&mut layer_1);
     b2.render(&mut layer_1);
 
-    let mut boxes = vec![b, b2];
+    let mut boxes = vec![b, b2, b3, b4];
     let mut counter = 0;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
@@ -139,6 +144,25 @@ fn main() -> ! {
                 b.derender(&mut layer_1, Color::from_hex(0xffffff));
                 b.next();
                 b.render(&mut layer_1);
+            }
+            let mut updates : alloc::vec::Vec<Vector2d> = vec!();
+            for b in &boxes {
+                let mut collision = false;
+                for bb in &boxes {
+                    let n_speed:Option<Vector2d> = b.collision(bb);
+                    if ! n_speed.is_none() {
+                        updates.push(n_speed.unwrap());
+                        collision = true;
+                        break;   
+                    } 
+                }
+                if ! collision {
+                    updates.push(b.vel);
+                }
+            }
+            for i in 0..boxes.len() {
+                let vel = boxes[i].vel;
+                boxes[i].update_speed(&updates[i]);
             }
             last_render = ticks;
         }
@@ -172,6 +196,7 @@ fn main() -> ! {
     }
 }
 
+#[derive(Copy, Clone)]
 struct Vector2d {
     x: i16,
     y: i16,
@@ -225,6 +250,27 @@ impl Box {
             }
         }
         return false;
+    }
+
+    fn collision(&self, b:& Box) -> Option<Vector2d> {
+        if self.intersect(b) {
+            return Some(Vector2d{x:b.vel.x, y:b.vel.y});
+        } else {
+            return None;
+        }
+    }
+
+    fn intersect(&self, b:& Box) -> bool{
+        if self.pos.x == b.pos.x && self.pos.y == b.pos.y && self.vel.x == b.vel.x && self.vel.y == b.vel.y &&
+                self.size == b.size {
+            return false;
+        }
+        (math::fabsf(self.pos.x as f32 - b.pos.x as f32) * 2.0 < (self.size as f32 + b.size as f32))  &&
+        (math::fabsf(self.pos.y as f32 - b.pos.y as f32) * 2.0 < (self.size as f32 + b.size as f32))
+    }
+
+    fn update_speed(&mut self, new_speed:& Vector2d) {
+        self.vel = *new_speed;
     }
 
     fn next(&mut self) {
