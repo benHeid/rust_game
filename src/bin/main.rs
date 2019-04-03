@@ -21,7 +21,7 @@ use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
     gpio::{GpioPort, OutputPin},
     init,
-    lcd::Color,
+    lcd::{self, Color, TextWriter},
     system_clock::{self, Hz},
     touch,
 };
@@ -46,6 +46,8 @@ fn SysTick() {
 fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
+
+
 
 #[entry]
 fn main() -> ! {
@@ -106,10 +108,13 @@ fn main() -> ! {
     let mut layer_2 = lcd.layer_2().unwrap();
     layer_1.clear();
     layer_2.clear();
+
+    lcd::init_stdout(layer_2);
+
     let mut b = Box::new(30, 200, 100, 2, 2);
-    let mut b2 = Box::new(30, 150, 100, -1, -2);
-    let mut b3 = Box::new(30, 200, 100, -1, 2);
-    let mut b4 = Box::new(30, 300, 100, 2, -2);
+    let mut b2 = Box::new(30, 40, 100, -1, -2);
+    let b3 = Box::new(30, 140, 100, -1, 2);
+    let b4 = Box::new(30, 100, 30, 2, -2);
     let OFFSET = 20;
     let HEIGHT = 252;
     let WIDTH = 460;
@@ -119,13 +124,11 @@ fn main() -> ! {
         }
     }
 
-    b.render(&mut layer_1);
-    b2.render(&mut layer_1);
-
     let mut boxes = vec![b, b2, b3, b4];
-    let mut counter = 0;
+    let mut counter = 20;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
+    let mut last_second = system_clock::ticks();
 
     //init variables for touch interactions
     let mut i2c_3 = init::init_i2c_3(peripherals.I2C3, &mut rcc);
@@ -137,8 +140,15 @@ fn main() -> ! {
     // controller might not be ready yet
     touch::check_family_id(&mut i2c_3).unwrap();
 
+    print!("\r           {} seconds left", counter);
     loop {
+
         let ticks = system_clock::ticks();
+        if ticks - last_second >= 20 {
+            counter -= 1;
+            last_second = ticks;
+            print!("\r           {} seconds left", counter);
+        }
         if ticks - last_render >= 1 {
             for b in &mut boxes {
                 let b: &mut Box = b;
@@ -162,7 +172,6 @@ fn main() -> ! {
                 }
             }
             for i in 0..boxes.len() {
-                let vel = boxes[i].vel;
                 boxes[i].update_speed(&updates[i]);
             }
             last_render = ticks;
