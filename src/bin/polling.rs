@@ -10,37 +10,19 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 extern crate cortex_m_semihosting as sh;
 #[macro_use]
-extern crate stm32f7;
-#[macro_use]
 extern crate stm32f7_discovery;
 extern crate smoltcp;
 
-use alloc::vec::Vec;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
-use core::fmt::Write;
 use core::panic::PanicInfo;
-use cortex_m::{asm, interrupt, peripheral::NVIC};
 use rt::{entry, exception, ExceptionFrame};
-use sh::hio::{self, HStdout};
-use smoltcp::{
-    dhcp::Dhcpv4Client,
-    socket::{
-        Socket, SocketSet, TcpSocket, TcpSocketBuffer,
-        UdpPacketMetadata, UdpSocket, UdpSocketBuffer,
-    },
-    time::Instant,
-    wire::{EthernetAddress, IpCidr, IpEndpoint, Ipv4Address},
-};
 use stm32f7::stm32f7x6::{CorePeripherals, Interrupt, Peripherals};
 use stm32f7_discovery::{
-    ethernet,
-    gpio::{GpioPort, InputPin, OutputPin},
+    gpio::{GpioPort, OutputPin},
     init,
-    lcd::AudioWriter,
     lcd::{self, Color},
     random::Rng,
-    sd,
     system_clock::{self, Hz},
     touch,
 };
@@ -49,7 +31,6 @@ use stm32f7_discovery::{
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 const HEAP_SIZE: usize = 50 * 1024; // in bytes
-const ETH_ADDR: EthernetAddress = EthernetAddress([0x00, 0x08, 0xdc, 0xab, 0xcd, 0xef]);
 
 #[entry]
 fn main() -> ! {
@@ -65,10 +46,6 @@ fn main() -> ! {
     let mut ltdc = peripherals.LTDC;
     let mut sai_2 = peripherals.SAI2;
     let mut rng = peripherals.RNG;
-    let mut sdmmc = peripherals.SDMMC1;
-    let mut syscfg = peripherals.SYSCFG;
-    let mut ethernet_mac = peripherals.ETHERNET_MAC;
-    let mut ethernet_dma = peripherals.ETHERNET_DMA;
 
     init::init_system_clock_216mhz(&mut rcc, &mut pwr, &mut flash);
     init::enable_gpio_ports(&mut rcc);
@@ -117,8 +94,6 @@ fn main() -> ! {
 
     nvic.enable(Interrupt::EXTI0);
 
-    let mut sd = sd::Sd::new(&mut sdmmc, &mut rcc, &pins.sdcard_present);
-
     init::init_sai_2(&mut sai_2, &mut rcc);
     init::init_wm8994(&mut i2c_3).expect("WM8994 init failed");
     // touch initialization should be done after audio initialization, because the touch
@@ -135,38 +110,6 @@ fn main() -> ! {
         );
     }
     println!("");
-
-    // ethernet
-    let mut ethernet_interface = ethernet::EthernetDevice::new(
-        Default::default(),
-        Default::default(),
-        &mut rcc,
-        &mut syscfg,
-        &mut ethernet_mac,
-        &mut ethernet_dma,
-        ETH_ADDR,
-    )
-    .map(|device| {
-        let iface = device.into_interface();
-        let prev_ip_addr = iface.ipv4_addr().unwrap();
-        (iface, prev_ip_addr)
-    });
-    if let Err(e) = ethernet_interface {
-        println!("ethernet init failed: {:?}", e);
-    };
-
-    let mut sockets = SocketSet::new(Vec::new());
-    let dhcp_rx_buffer = UdpSocketBuffer::new([UdpPacketMetadata::EMPTY; 1], vec![0; 1500]);
-    let dhcp_tx_buffer = UdpSocketBuffer::new([UdpPacketMetadata::EMPTY; 1], vec![0; 3000]);
-    let mut dhcp = Dhcpv4Client::new(
-        &mut sockets,
-        dhcp_rx_buffer,
-        dhcp_tx_buffer,
-        Instant::from_millis(system_clock::ms() as i64),
-    ).expect("could not bind udp socket");
-
-    let mut previous_button_state = pins.button.get();
-    let mut audio_writer = AudioWriter::new();
     //init
     loop{
         // poll for new touch data
@@ -204,18 +147,9 @@ fn rust_oom(_: AllocLayout) -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    interrupt::disable();
 
     if lcd::stdout::is_initialized() {
         println!("{}", info);
     }
-
-    if let Ok(mut hstdout) = hio::hstdout() {
-        let _ = writeln!(hstdout, "{}", info);
-    }
-
-    // OK to fire a breakpoint here because we know the microcontroller is connected to a debugger
-    asm::bkpt();
-
     loop {}
 }
