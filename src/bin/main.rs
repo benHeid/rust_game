@@ -279,8 +279,8 @@ impl Box {
                 let j = 20 + y as usize + self.pos.y as usize;
                 let wert = IMG[2 * (x + y * 30) as usize + 1];
                 if wert > 25 {
-                    let c = Color::rgb(255, 0, 0);
-                    layer.print_point_color_at(i, j, c)
+                    //let c = Color::rgb(255, 0, 0);
+                    layer.print_point_color_at(i, j, self.col)
                 } 
             }
         }
