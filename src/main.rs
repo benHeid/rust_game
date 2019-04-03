@@ -96,7 +96,7 @@ fn main() -> ! {
     let mut layer_2 = lcd.layer_2().unwrap();
     layer_1.clear();
     layer_2.clear();
-    let mut b = Box::new(20, 30, 150, 2, 2);
+    let mut b = Box::new(30, 30, 150, 2, 2);
     let OFFSET = 20;
     let HEIGHT = 252;
     let WIDTH = 460;
@@ -132,30 +132,31 @@ fn main() -> ! {
     }
 }
 
+struct Vector2d {
+    x : i16,
+    y : i16
+}
+
 struct Box {
     size: u16,
-    x: u16,
-    y: u16,
-    vel_x: i16,
-    vel_y: i16,
+    pos: Vector2d,
+    vel: Vector2d
 }
 
 impl Box {
-    fn new(size: u16, x: u16, y: u16, vel_x: i16, vel_y: i16) -> Self {
+    fn new(size: u16, x: i16, y: i16, vel_x: i16, vel_y: i16) -> Self {
         Self {
             size,
-            x,
-            y,
-            vel_x,
-            vel_y,
+            pos:Vector2d{x:x,y:y},
+            vel: Vector2d{x:vel_x,y:vel_y},
         }
     }
     fn render(
         &mut self,
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
     ) {
-        for i in (20 + self.x)..=(20 + self.x + self.size) {
-            for j in (20 + self.y)..=(20 + self.y + self.size) {
+        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
+            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
                 layer.print_point_color_at(i as usize, j as usize, Color::from_hex(0x660000))
             }
         }
@@ -164,31 +165,36 @@ impl Box {
     fn derender(
         &mut self,
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
-        bgColor: Color,
+        bg_color: Color,
     ) {
-        for i in (20 + self.x)..=(20 + self.x + self.size) {
-            for j in (20 + self.y)..=(20 + self.y + self.size) {
-                layer.print_point_color_at(i as usize, j as usize, bgColor)
+        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
+            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
+                layer.print_point_color_at(i as usize, j as usize, bg_color)
             }
         }
+    }
+
+    fn hit(&mut self, hit:Vector2d) -> bool{
+        false
     }
 
     fn next(&mut self) {
         let HEIGHT = 252;
         let WIDTH = 460;
-        if self.size as i16 * 2 + self.x as i16 + self.vel_x > WIDTH {
-            self.vel_x *= -1;
+        let OFFSET = 20;
+        if OFFSET + self.size as i16 + self.pos.x as i16 + self.vel.x > WIDTH {
+            self.vel.x *= -1;
         }
-        if self.size as i16 + self.x as i16 + self.vel_x < 20 {
-            self.vel_x *= -1;
+        if OFFSET + self.pos.x as i16 + self.vel.x < 20 {
+            self.vel.x *= -1;
         }
-        if self.size as i16 * 2 + self.y as i16 + self.vel_y > HEIGHT {
-            self.vel_y *= -1;
+        if OFFSET + self.size as i16 + self.pos.y as i16 + self.vel.y > HEIGHT {
+            self.vel.y *= -1;
         }
-        if self.size as i16 + self.y as i16 + self.vel_y < 20 {
-            self.vel_y *= -1;
+        if OFFSET + self.pos.y as i16 + self.vel.y < 20 {
+            self.vel.y *= -1;
         }
-        self.x += self.vel_x as u16;
-        self.y += self.vel_y as u16;
+        self.pos.x += self.vel.x;
+        self.pos.y += self.vel.y;
     }
 }
