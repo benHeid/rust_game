@@ -10,12 +10,13 @@ extern crate stm32f7_discovery;
 #[macro_use]
 extern crate alloc;
 
-//const IMG: [u8; 300 * 168 * 3] = *include_bytes!("download.data");
+const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
 
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
+use math;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
     gpio::{GpioPort, OutputPin},
@@ -24,8 +25,6 @@ use stm32f7_discovery::{
     system_clock::{self, Hz},
     touch,
 };
-use math;
-
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -145,18 +144,18 @@ fn main() -> ! {
                 b.next();
                 b.render(&mut layer_1);
             }
-            let mut updates : alloc::vec::Vec<Vector2d> = vec!();
+            let mut updates: alloc::vec::Vec<Vector2d> = vec![];
             for b in &boxes {
                 let mut collision = false;
                 for bb in &boxes {
-                    let n_speed:Option<Vector2d> = b.collision(bb);
-                    if ! n_speed.is_none() {
+                    let n_speed: Option<Vector2d> = b.collision(bb);
+                    if !n_speed.is_none() {
                         updates.push(n_speed.unwrap());
                         collision = true;
-                        break;   
-                    } 
+                        break;
+                    }
                 }
-                if ! collision {
+                if !collision {
                     updates.push(b.vel);
                 }
             }
@@ -223,11 +222,23 @@ impl Box {
         &mut self,
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
     ) {
-        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
-            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
-                layer.print_point_color_at(i as usize, j as usize, self.col)
+        for y in 0..=self.size {
+            for x in 0..=self.size {
+                let i = 20 + x as usize + self.pos.x as usize;
+                let j = 20 + y as usize + self.pos.y as usize;
+                let wert = IMG[2 * (x + y * 30) as usize + 1];
+                if wert > 25 {
+                    let c = Color::rgb(255, 0, 0);
+                    layer.print_point_color_at(i, j, c)
+                } 
             }
         }
+        // for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
+        //     for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
+        //         layer.print_point_color_at(i as usize, j as usize, Color::rgb(IMG[2*i as usize+j as usize], 0, 0))
+        //         //layer.print_point_color_at(i as usize, j as usize, self.col)
+        //     }
+        // }
     }
 
     fn derender(
@@ -244,7 +255,7 @@ impl Box {
 
     fn hit(&mut self, hit: &Vector2d) -> bool {
         if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size as i16 + 20 {
-            if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20{
+            if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20 {
                 self.col = Color::from_hex(0xffffff);
                 return true;
             }
@@ -252,24 +263,32 @@ impl Box {
         return false;
     }
 
-    fn collision(&self, b:& Box) -> Option<Vector2d> {
+    fn collision(&self, b: &Box) -> Option<Vector2d> {
         if self.intersect(b) {
-            return Some(Vector2d{x:b.vel.x, y:b.vel.y});
+            return Some(Vector2d {
+                x: b.vel.x,
+                y: b.vel.y,
+            });
         } else {
             return None;
         }
     }
 
-    fn intersect(&self, b:& Box) -> bool{
-        if self.pos.x == b.pos.x && self.pos.y == b.pos.y && self.vel.x == b.vel.x && self.vel.y == b.vel.y &&
-                self.size == b.size {
+    fn intersect(&self, b: &Box) -> bool {
+        if self.pos.x == b.pos.x
+            && self.pos.y == b.pos.y
+            && self.vel.x == b.vel.x
+            && self.vel.y == b.vel.y
+            && self.size == b.size
+        {
             return false;
         }
-        (math::fabsf(self.pos.x as f32 - b.pos.x as f32) * 2.0 < (self.size as f32 + b.size as f32))  &&
-        (math::fabsf(self.pos.y as f32 - b.pos.y as f32) * 2.0 < (self.size as f32 + b.size as f32))
+        (math::fabsf(self.pos.x as f32 - b.pos.x as f32) * 2.0 < (self.size as f32 + b.size as f32))
+            && (math::fabsf(self.pos.y as f32 - b.pos.y as f32) * 2.0
+                < (self.size as f32 + b.size as f32))
     }
 
-    fn update_speed(&mut self, new_speed:& Vector2d) {
+    fn update_speed(&mut self, new_speed: &Vector2d) {
         self.vel = *new_speed;
     }
 
