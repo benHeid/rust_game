@@ -27,6 +27,9 @@ branch = "dhcp"
 default-features = false
 features = ["alloc", "socket-raw", "socket-udp", "socket-tcp", "socket-icmp", "proto-ipv4", "proto-dhcpv4"]
 
+[dependencies.rand]
+version = "0.6"
+default-features = false
 
 [profile.release]
 lto = true

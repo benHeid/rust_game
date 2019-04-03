@@ -12,12 +12,22 @@ extern crate stm32f7_discovery;
 extern crate alloc;
 
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
+const colors: [(u8, u8, u8); 5] = [
+    (255, 0, 0),
+    (0, 128, 0),
+    (0, 0, 128),
+    (192, 192, 192),
+    (255, 255, 0),
+];
+const max_simultaneous_dragons_on_screen: u8 = 20;
 
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
 use math;
+use rand::Rng;
+use rand::SeedableRng;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
     gpio::{GpioPort, OutputPin},
@@ -45,8 +55,6 @@ fn SysTick() {
 fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
-
-
 
 #[entry]
 fn main() -> ! {
@@ -107,13 +115,32 @@ fn main() -> ! {
     let mut layer_2 = lcd.layer_2().unwrap();
     layer_1.clear();
     layer_2.clear();
-
     lcd::init_stdout(layer_2);
-
-    let mut b = Box::new(30, 200, 100, 2, 2);
-    let mut b2 = Box::new(30, 40, 100, -1, -2);
-    let b3 = Box::new(30, 140, 100, -1, 2);
-    let b4 = Box::new(30, 100, 30, 2, -2);
+    let mut number_of_dragons = 0;
+    let mut last_dragon_create = system_clock::ticks();
+    let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
+    let mut boxes:alloc::vec::Vec<Box> = vec![];
+    let mut counter = 0;
+    let mut last_led_toggle = system_clock::ticks();
+    let mut last_render = system_clock::ticks();
+    for i in 0..8 {
+        number_of_dragons = number_of_dragons + 1;
+        let tupel = colors[rand.gen_range(0, 4)];
+        let color = Color::rgb(tupel.0, tupel.1, tupel.2);
+        let dragon = Box::new(
+            30,
+            rand.gen_range(0, 480),
+            rand.gen_range(0, 270),
+            rand.gen_range(-10, 10),
+            rand.gen_range(-10, 10),
+            color,
+        );
+        for d in &boxes.clone() {
+            if !d.intersect(&dragon.clone()) {
+                boxes.push(dragon);
+            }
+        }
+    }
     let OFFSET = 20;
     let HEIGHT = 252;
     let WIDTH = 460;
@@ -123,11 +150,13 @@ fn main() -> ! {
         }
     }
 
-    let mut boxes = vec![b, b2, b3, b4];
     let mut counter = 5;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
+    for d in &mut boxes {
+        d.render(&mut layer_1);
+    }
 
     //init variables for touch interactions
     let mut i2c_3 = init::init_i2c_3(peripherals.I2C3, &mut rcc);
@@ -139,87 +168,125 @@ fn main() -> ! {
     // controller might not be ready yet
     touch::check_family_id(&mut i2c_3).unwrap();
     let mut seconds = 0;
-    print!("\r           {} seconds left                                          ", counter);
     loop {
         loop {
-        let ticks = system_clock::ticks();
+            let ticks = system_clock::ticks();
             if ticks - last_second >= 20 {
                 counter -= 1;
                 seconds += 1;
                 last_second = ticks;
-                print!("\r           {} seconds left                                          ", counter);
-            }
-            if ticks - last_render >= 1 {
-                for b in &mut boxes {
-                    let b: &mut Box = b;
-                    b.derender(&mut layer_1, Color::from_hex(0xffffff));
-                    b.next();
-                    b.render(&mut layer_1);
-                }
-                let mut updates : alloc::vec::Vec<Vector2d> = vec!();
-                for b in &boxes {
-                    let mut collision = false;
-                    for bb in &boxes {
-                        let n_speed:Option<Vector2d> = b.collision(bb);
-                        if ! n_speed.is_none() {
-                            updates.push(n_speed.unwrap());
-                            collision = true;
-                            break;   
-                        } 
+                print!(
+                    "\r           {} seconds left                                          ",
+                    counter
+                );
+                //evry half seconds roll for dragon creation
+                if ticks - last_dragon_create >= 10 {
+                    if number_of_dragons < max_simultaneous_dragons_on_screen {
+                        //add dragon
+                        let rng_number = rand.gen_range(0, 9);
+                        if rng_number % 2 == 0 {
+                            let tupel = colors[rand.gen_range(0, 4)];
+                            let color = Color::rgb(tupel.0, tupel.1, tupel.2);
+                            let dragon = Box::new(
+                                30,
+                                rand.gen_range(0, 480),
+                                rand.gen_range(0, 270),
+                                rand.gen_range(-10, 10),
+                                rand.gen_range(-10, 10),
+                                color,
+                            );
+                            for d in &boxes.clone() {
+                                if !d.intersect(&dragon.clone()) {
+                                    boxes.push(dragon);
+                                }
+                            }
+                        }
                     }
-                    if ! collision {
-                        updates.push(b.vel);
-                    }
+                    //reset timer
+                    last_dragon_create = ticks;
                 }
-                for i in 0..boxes.len() {
-                    boxes[i].update_speed(&updates[i]);
-                }
-                last_render = ticks;
-            }
-
-            if ticks - last_led_toggle >= 30 {
-                if counter % 2 == 0 {
-                    lcd.set_background_color(Color::from_hex(0x006600));
-                } else {
-                    lcd.set_background_color(Color::from_hex(0x000066));
-                }
-                counter += 1;
-                last_led_toggle = ticks;
-            }
-            // poll for new touch data
-            for touch in &touch::touches(&mut i2c_3).unwrap() {
-                //type cast for lcd
-                let t;
-                t = Vector2d {
-                    x: touch.x as i16,
-                    y: touch.y as i16,
-                };
-                let mut remove : alloc::vec::Vec<Box> = alloc::vec::Vec::new();
-                for b in &mut boxes {
-                    let b: &mut Box = b;
-                    if b.hit(&t) {
+                if ticks - last_render >= 1 {
+                    for b in &mut boxes {
+                        let b: &mut Box = b;
                         b.derender(&mut layer_1, Color::from_hex(0xffffff));
-                        remove.push(b.clone());
+                        b.next();
+                        b.render(&mut layer_1);
+                    }
+                }
+                if ticks - last_render >= 1 {
+                    for b in &mut boxes {
+                        let b: &mut Box = b;
+                        b.derender(&mut layer_1, Color::from_hex(0xffffff));
+                        b.next();
+                        b.render(&mut layer_1);
+                    }
+                    let mut updates: alloc::vec::Vec<Vector2d> = vec![];
+                    for b in &boxes {
+                        let mut collision = false;
+                        for bb in &boxes {
+                            let n_speed: Option<Vector2d> = b.collision(bb);
+                            if !n_speed.is_none() {
+                                updates.push(n_speed.unwrap());
+                                collision = true;
+                                break;
+                            }
+                        }
+                        if !collision {
+                            updates.push(b.vel);
+                        }
+                    }
+                    for i in 0..boxes.len() {
+                        boxes[i].update_speed(&updates[i]);
+                    }
+                    last_render = ticks;
+                }
+
+                if ticks - last_led_toggle >= 30 {
+                    if counter % 2 == 0 {
+                        lcd.set_background_color(Color::from_hex(0x006600));
+                    } else {
                         lcd.set_background_color(Color::from_hex(0x000066));
                     }
+                    counter += 1;
+                    last_led_toggle = ticks;
                 }
-                for b in remove {
-                    boxes.remove_item(&b);
+                // poll for new touch data
+                for touch in &touch::touches(&mut i2c_3).unwrap() {
+                    //type cast for lcd
+                    let t;
+                    t = Vector2d {
+                        x: touch.x as i16,
+                        y: touch.y as i16,
+                    };
+                    let mut remove: alloc::vec::Vec<Box> = alloc::vec::Vec::new();
+                    for b in &mut boxes {
+                        let b: &mut Box = b;
+                        if b.hit(&t) {
+                            b.derender(&mut layer_1, Color::from_hex(0xffffff));
+                            remove.push(b.clone());
+                            lcd.set_background_color(Color::from_hex(0x000066));
+                        }
+                    }
+                    for b in remove {
+                        boxes.remove_item(&b);
+                    }
                 }
-            }
-        
-            if counter < 0 {
-                break;
 
+                if counter < 0 {
+                    break;
+                }
             }
         }
         layer_1.clear();
         boxes.clear();
-        let mut b = Box::new(80, 240, 100, 0, 0);
-        print!("\rYour survived for {} seconds, hit button for new turn", seconds); 
+        let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
+        print!(
+            "\rYour survived for {} seconds, hit button for new turn",
+            seconds
+        );
         b.render(&mut layer_1);
         let mut new_game = false;
-        while ! new_game {
+        while !new_game {
             for touch in &touch::touches(&mut i2c_3).unwrap() {
                 //type cast for lcd
                 let t;
@@ -228,7 +295,6 @@ fn main() -> ! {
                     y: touch.y as i16,
                 };
                 if b.hit(&t) {
-                    
                     layer_1.clear();
                     new_game = true;
                     break;
@@ -250,8 +316,7 @@ struct Vector2d {
     x: i16,
     y: i16,
 }
-
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 struct Box {
     size: u16,
     pos: Vector2d,
@@ -260,13 +325,12 @@ struct Box {
 }
 
 impl Box {
-    fn new(size: u16, x: i16, y: i16, vel_x: i16, vel_y: i16) -> Self {
+    fn new(size: u16, x: i16, y: i16, vel_x: i16, vel_y: i16, vel_col: Color) -> Self {
         Self {
             size,
             pos: Vector2d { x: x, y: y },
             vel: Vector2d { x: vel_x, y: vel_y },
-            //Red color for rendering
-            col: Color::from_hex(0x660000),
+            col: vel_col,
         }
     }
     fn render(
@@ -281,7 +345,7 @@ impl Box {
                 if wert > 25 {
                     //let c = Color::rgb(255, 0, 0);
                     layer.print_point_color_at(i, j, self.col)
-                } 
+                }
             }
         }
         // for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
@@ -366,10 +430,14 @@ impl Box {
 
 impl PartialEq for Box {
     fn eq(&self, b: &Box) -> bool {
-        if self.pos.x == b.pos.x && self.pos.y == b.pos.y && self.vel.x == b.vel.x && self.vel.y == b.vel.y &&
-                self.size == b.size {
+        if self.pos.x == b.pos.x
+            && self.pos.y == b.pos.y
+            && self.vel.x == b.vel.x
+            && self.vel.y == b.vel.y
+            && self.size == b.size
+        {
             return true;
-        } 
-        false
         }
+        false
+    }
 }
