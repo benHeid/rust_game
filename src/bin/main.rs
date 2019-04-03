@@ -179,7 +179,11 @@ struct Box {
     size: u16,
     pos: Vector2d,
     vel: Vector2d,
+<<<<<<< HEAD
     col: Color,
+=======
+    col: Color;
+>>>>>>> refs/remotes/origin/master
 }
 
 impl Box {
@@ -188,8 +192,11 @@ impl Box {
             size,
             pos: Vector2d { x: x, y: y },
             vel: Vector2d { x: vel_x, y: vel_y },
+<<<<<<< HEAD
             //Red color for rendering
             col: Color::from_hex(0x660000),
+=======
+>>>>>>> refs/remotes/origin/master
         }
     }
     fn render(
@@ -198,7 +205,11 @@ impl Box {
     ) {
         for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
             for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
+<<<<<<< HEAD
                 layer.print_point_color_at(i as usize, j as usize, self.col)
+=======
+                layer.print_point_color_at(i as usize, j as usize, Color::from_hex(0x660000))
+>>>>>>> refs/remotes/origin/master
             }
         }
     }
@@ -218,7 +229,10 @@ impl Box {
     fn hit(&mut self, hit: &Vector2d) -> bool {
         if self.pos.x <= hit.x && hit.x <= (self.pos.x + self.size as i16) {
             if self.pos.y >= hit.y && hit.y >= (self.pos.y - self.size as i16) {
+<<<<<<< HEAD
                 self.col = Color::from_hex(0xffffff);
+=======
+>>>>>>> refs/remotes/origin/master
                 return true;
             }
         }

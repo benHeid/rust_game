@@ -111,7 +111,7 @@ fn main() -> ! {
     }
     println!("");
     //init
-    loop{
+    loop {
         // poll for new touch data
         for touch in &touch::touches(&mut i2c_3).unwrap() {
             layer_1.print_point_color_at(
@@ -123,7 +123,6 @@ fn main() -> ! {
         }
     }
 }
-
 
 #[exception]
 fn SysTick() {
@@ -147,7 +146,6 @@ fn rust_oom(_: AllocLayout) -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-
     if lcd::stdout::is_initialized() {
         println!("{}", info);
     }
