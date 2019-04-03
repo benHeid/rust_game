@@ -11,12 +11,22 @@ extern crate stm32f7_discovery;
 extern crate alloc;
 
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
+const colors: [(u8, u8, u8); 5] = [
+    (255, 0, 0),
+    (0, 128, 0),
+    (0, 0, 128),
+    (192, 192, 192),
+    (255, 255, 0),
+];
+const max_simultaneous_dragons_on_screen: u8 = 20;
 
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
 use math;
+use rand::Rng;
+use rand::SeedableRng;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
     gpio::{GpioPort, OutputPin},
@@ -104,10 +114,31 @@ fn main() -> ! {
     let mut layer_2 = lcd.layer_2().unwrap();
     layer_1.clear();
     layer_2.clear();
-    let mut b = Box::new(30, 200, 100, 2, 2);
-    let mut b2 = Box::new(30, 150, 100, -1, -2);
-    let mut b3 = Box::new(30, 200, 100, -1, 2);
-    let mut b4 = Box::new(30, 300, 100, 2, -2);
+
+    let mut number_of_dragons = 0;
+    let mut last_dragon_create = system_clock::ticks();
+    let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
+        let mut boxes = vec![];
+    let mut counter = 0;
+    let mut last_led_toggle = system_clock::ticks();
+    let mut last_render = system_clock::ticks();
+    for i in 0..8 {
+        number_of_dragons = number_of_dragons +1;
+        let tupel = colors[rand.gen_range(0, 4)];
+                    let color = Color::rgb(tupel.0, tupel.1, tupel.2);
+                    let dragon = Box::new(30,
+                                            rand.gen_range(0, 480),
+                                            rand.gen_range(0, 270),
+                                             rand.gen_range(-10, 10),
+                                             rand.gen_range(-10, 10),
+                                             color);
+                                             for d in &boxes.clone() {
+                        if !d.intersect(&dragon.clone()) {
+                            boxes.push(dragon);
+                        }
+                    }
+
+    }
     let OFFSET = 20;
     let HEIGHT = 252;
     let WIDTH = 460;
@@ -117,13 +148,11 @@ fn main() -> ! {
         }
     }
 
-    b.render(&mut layer_1);
-    b2.render(&mut layer_1);
+    for d in &boxes {
+            d.render(&mut layer_1);
+    }
 
-    let mut boxes = vec![b, b2, b3, b4];
-    let mut counter = 0;
-    let mut last_led_toggle = system_clock::ticks();
-    let mut last_render = system_clock::ticks();
+
 
     //init variables for touch interactions
     let mut i2c_3 = init::init_i2c_3(peripherals.I2C3, &mut rcc);
@@ -137,6 +166,30 @@ fn main() -> ! {
 
     loop {
         let ticks = system_clock::ticks();
+        //evry half seconds roll for dragon creation
+        if ticks - last_dragon_create >= 10 {
+            if number_of_dragons < max_simultaneous_dragons_on_screen {
+                //add dragon
+                let rng_number = rand.gen_range(0, 9);
+                if rng_number % 2 == 0 {
+                    let tupel = colors[rand.gen_range(0, 4)];
+                    let color = Color::rgb(tupel.0, tupel.1, tupel.2);
+                    let dragon = Box::new(30,
+                                            rand.gen_range(0, 480),
+                                            rand.gen_range(0, 270),
+                                             rand.gen_range(-10, 10),
+                                             rand.gen_range(-10, 10),
+                                             color);
+                    for d in &boxes.clone() {
+                        if !d.intersect(&dragon.clone()) {
+                            boxes.push(dragon);
+                        }
+                    }
+                }
+            }
+            //reset timer
+            last_dragon_create = ticks;
+        }
         if ticks - last_render >= 1 {
             for b in &mut boxes {
                 let b: &mut Box = b;
@@ -200,7 +253,7 @@ struct Vector2d {
     x: i16,
     y: i16,
 }
-
+#[derive(Copy, Clone)]
 struct Box {
     size: u16,
     pos: Vector2d,
@@ -209,13 +262,12 @@ struct Box {
 }
 
 impl Box {
-    fn new(size: u16, x: i16, y: i16, vel_x: i16, vel_y: i16) -> Self {
+    fn new(size: u16, x: i16, y: i16, vel_x: i16, vel_y: i16, vel_col: Color) -> Self {
         Self {
             size,
             pos: Vector2d { x: x, y: y },
             vel: Vector2d { x: vel_x, y: vel_y },
-            //Red color for rendering
-            col: Color::from_hex(0x660000),
+            col: vel_col,
         }
     }
     fn render(
@@ -230,7 +282,7 @@ impl Box {
                 if wert > 25 {
                     //let c = Color::rgb(255, 0, 0);
                     layer.print_point_color_at(i, j, self.col)
-                } 
+                }
             }
         }
         // for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
