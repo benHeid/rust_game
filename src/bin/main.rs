@@ -10,6 +10,8 @@ extern crate stm32f7_discovery;
 #[macro_use]
 extern crate alloc;
 
+const IMG: [u8; 300 * 168 * 3] = *include_bytes!("download.data");
+
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
@@ -100,7 +102,7 @@ fn main() -> ! {
     let mut layer_2 = lcd.layer_2().unwrap();
     layer_1.clear();
     layer_2.clear();
-    let mut b = Box::new(30, 30, 150, 2, 2);
+    let mut b = Box::new(30, 200, 100, 0, 0);
     let mut b2 = Box::new(30, 150, 100, -1, -2);
     let OFFSET = 20;
     let HEIGHT = 252;
@@ -118,7 +120,7 @@ fn main() -> ! {
     let mut counter = 0;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
-    
+
     //init variables for touch interactions
     let mut i2c_3 = init::init_i2c_3(peripherals.I2C3, &mut rcc);
     i2c_3.test_1();
@@ -179,11 +181,7 @@ struct Box {
     size: u16,
     pos: Vector2d,
     vel: Vector2d,
-<<<<<<< HEAD
     col: Color,
-=======
-    col: Color;
->>>>>>> refs/remotes/origin/master
 }
 
 impl Box {
@@ -192,11 +190,8 @@ impl Box {
             size,
             pos: Vector2d { x: x, y: y },
             vel: Vector2d { x: vel_x, y: vel_y },
-<<<<<<< HEAD
             //Red color for rendering
             col: Color::from_hex(0x660000),
-=======
->>>>>>> refs/remotes/origin/master
         }
     }
     fn render(
@@ -205,11 +200,7 @@ impl Box {
     ) {
         for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
             for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
-<<<<<<< HEAD
                 layer.print_point_color_at(i as usize, j as usize, self.col)
-=======
-                layer.print_point_color_at(i as usize, j as usize, Color::from_hex(0x660000))
->>>>>>> refs/remotes/origin/master
             }
         }
     }
@@ -227,12 +218,9 @@ impl Box {
     }
 
     fn hit(&mut self, hit: &Vector2d) -> bool {
-        if self.pos.x <= hit.x && hit.x <= (self.pos.x + self.size as i16) {
-            if self.pos.y >= hit.y && hit.y >= (self.pos.y - self.size as i16) {
-<<<<<<< HEAD
+        if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size as i16 + 20 {
+            if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20{
                 self.col = Color::from_hex(0xffffff);
-=======
->>>>>>> refs/remotes/origin/master
                 return true;
             }
         }
