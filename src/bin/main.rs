@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(alloc_error_handler)]
 #![feature(alloc)]
+#![feature(vec_remove_item)]
 
 #[macro_use]
 extern crate stm32f7;
@@ -184,13 +185,17 @@ fn main() -> ! {
                 x: touch.x as i16,
                 y: touch.y as i16,
             };
+            let mut remove : alloc::vec::Vec<Box> = alloc::vec::Vec::new();
             for b in &mut boxes {
                 let b: &mut Box = b;
                 if b.hit(&t) {
-                    b.derender(&mut layer_1, Color::from_hex(0xe21212));
-                } else {
-                    //do nothing
+                    b.derender(&mut layer_1, Color::from_hex(0xffffff));
+                    remove.push(b.clone());
+                    lcd.set_background_color(Color::from_hex(0x000066));
                 }
+            }
+            for b in remove {
+                boxes.remove_item(&b);
             }
         }
     }
@@ -202,6 +207,7 @@ struct Vector2d {
     y: i16,
 }
 
+#[derive(Clone)]
 struct Box {
     size: u16,
     pos: Vector2d,
@@ -292,4 +298,14 @@ impl Box {
         self.pos.x += self.vel.x;
         self.pos.y += self.vel.y;
     }
+}
+
+impl PartialEq for Box {
+    fn eq(&self, b: &Box) -> bool {
+        if self.pos.x == b.pos.x && self.pos.y == b.pos.y && self.vel.x == b.vel.x && self.vel.y == b.vel.y &&
+                self.size == b.size {
+            return true;
+        } 
+        false
+        }
 }
