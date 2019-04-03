@@ -5,7 +5,7 @@ name = "rust_game"
 version = "0.1.0"
 authors = ["benheid <benheid@users.noreply.guthub.com>", "SergenCiftci"]
 edition = "2018"
-default-run = "polling"
+default-run = "main"
 
 [dependencies]
 cortex-m = "0.5.0"
