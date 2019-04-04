@@ -140,7 +140,7 @@ fn main() -> ! {
     // controller might not be ready yet
     touch::check_family_id(&mut i2c_3).unwrap();
     let mut seconds = 0;
-    print!("\r           {} seconds left", counter);
+    print!("\r           {} seconds left                                          ", counter);
     loop {
         loop {
         let ticks = system_clock::ticks();
@@ -148,7 +148,7 @@ fn main() -> ! {
                 counter -= 1;
                 seconds += 1;
                 last_second = ticks;
-                print!("\r           {} seconds left", counter);
+                print!("\r           {} seconds left                                          ", counter);
             }
             if ticks - last_render >= 1 {
                 for b in &mut boxes {
@@ -214,11 +214,35 @@ fn main() -> ! {
 
             }
         }
-        loop {
-            layer_1.clear();
-            boxes.clear();
-            print!("\rYour survived for {}", seconds); 
+        layer_1.clear();
+        boxes.clear();
+        let mut b = Box::new(80, 240, 100, 0, 0);
+        print!("\rYour survived for {} seconds, hit button for new turn", seconds); 
+        b.render(&mut layer_1);
+        let mut new_game = false;
+        while ! new_game {
+            for touch in &touch::touches(&mut i2c_3).unwrap() {
+                //type cast for lcd
+                let t;
+                t = Vector2d {
+                    x: touch.x as i16,
+                    y: touch.y as i16,
+                };
+                if b.hit(&t) {
+                    
+                    layer_1.clear();
+                    new_game = true;
+                    break;
+                }
+            }
         }
+        for i in OFFSET..=WIDTH {
+            for j in OFFSET..=HEIGHT {
+                layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
+            }
+        }
+        counter = 5;
+        seconds = 0;
     }
 }
 
