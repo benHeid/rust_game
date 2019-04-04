@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(alloc_error_handler)]
 #![feature(alloc)]
+#![feature(vec_remove_item)]
 
 #[macro_use]
 extern crate stm32f7;
@@ -11,7 +12,7 @@ extern crate stm32f7_discovery;
 extern crate alloc;
 
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
-const colors: [(u8, u8, u8); 5] = [
+const COLORS: [(u8, u8, u8); 5] = [
     (255, 0, 0),
     (0, 128, 0),
     (0, 0, 128),
@@ -31,7 +32,7 @@ use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
     gpio::{GpioPort, OutputPin},
     init,
-    lcd::Color,
+    lcd::{self, Color, TextWriter},
     system_clock::{self, Hz},
     touch,
 };
@@ -119,11 +120,12 @@ fn main() -> ! {
     let mut last_dragon_create = system_clock::ticks();
     let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
     let mut boxes: alloc::vec::Vec<Box> = vec![];
-    let mut counter = 0;
+    let mut counter = 5;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
+    let mut last_second = system_clock::ticks();
     while number_of_dragons <= 8 {
-        let tupel = colors[rand.gen_range(0, 4)];
+        let tupel = COLORS[rand.gen_range(0, 4)];
         let color = Color::rgb(tupel.0, tupel.1, tupel.2);
         let dragon = Box::new(
             30,
@@ -166,92 +168,145 @@ fn main() -> ! {
     // touch initialization should be done after audio initialization, because the touch
     // controller might not be ready yet
     touch::check_family_id(&mut i2c_3).unwrap();
-
+    let mut seconds = 0;
+    print!(
+        "\r           {} seconds left                                          ",
+        counter
+    );
     loop {
-        let ticks = system_clock::ticks();
-        //every half seconds roll for dragon creation
-        if ticks - last_dragon_create >= 10 {
-            if number_of_dragons < max_simultaneous_dragons_on_screen {
-                //add dragon
-                let tupel = colors[rand.gen_range(0, 4)];
-                let color = Color::rgb(tupel.0, tupel.1, tupel.2);
-                let dragon = Box::new(
-                    30,
-                    rand.gen_range(60, 400),
-                    rand.gen_range(60, 200),
-                    rand.gen_range(-10, 10),
-                    rand.gen_range(-10, 10),
-                    color,
+        loop {
+            let ticks = system_clock::ticks();
+            //every half seconds roll for dragon creation
+            if ticks - last_dragon_create >= 10 {
+                if number_of_dragons < max_simultaneous_dragons_on_screen {
+                    //add dragon
+                    let tupel = COLORS[rand.gen_range(0, 4)];
+                    let color = Color::rgb(tupel.0, tupel.1, tupel.2);
+                    let dragon = Box::new(
+                        30,
+                        rand.gen_range(60, 400),
+                        rand.gen_range(60, 200),
+                        rand.gen_range(-10, 10),
+                        rand.gen_range(-10, 10),
+                        color,
+                    );
+                    let mut intersect = false;
+                    for d in &boxes.clone() {
+                        if d.intersect(&dragon.clone()) {
+                            intersect = true;
+                        }
+                    }
+                    if !intersect {
+                        boxes.push(dragon);
+                        number_of_dragons = number_of_dragons + 1;
+                    }
+                    //reset timer
+                    last_dragon_create = ticks;
+                }
+            }
+            if ticks - last_second >= 20 {
+                counter -= 1;
+                seconds += 1;
+                last_second = ticks;
+                print!(
+                    "\r           {} seconds left                                          ",
+                    counter
                 );
-                let mut intersect = false;
-                for d in &boxes.clone() {
-                    if d.intersect(&dragon.clone()) {
-                        intersect = true;
+            }
+            if ticks - last_render >= 1 {
+                for b in &mut boxes {
+                    let b: &mut Box = b;
+                    b.derender(&mut layer_1, Color::from_hex(0xffffff));
+                    b.next();
+                    b.render(&mut layer_1);
+                }
+                let mut updates: alloc::vec::Vec<Vector2d> = vec![];
+                for b in &boxes {
+                    let mut collision = false;
+                    for bb in &boxes {
+                        let n_speed: Option<Vector2d> = b.collision(bb);
+                        if !n_speed.is_none() {
+                            updates.push(n_speed.unwrap());
+                            collision = true;
+                            break;
+                        }
+                    }
+                    if !collision {
+                        updates.push(b.vel);
                     }
                 }
-                if !intersect {
-                    boxes.push(dragon);
-                    number_of_dragons = number_of_dragons + 1;
+                for i in 0..boxes.len() {
+                    boxes[i].update_speed(&updates[i]);
                 }
-                //reset timer
-                last_dragon_create = ticks;
+                last_render = ticks;
             }
-        }
-        if ticks - last_render >= 1 {
-            for b in &mut boxes {
-                let b: &mut Box = b;
-                b.derender(&mut layer_1, Color::from_hex(0xffffff));
-                b.next();
-                b.render(&mut layer_1);
-            }
-            let mut updates: alloc::vec::Vec<Vector2d> = vec![];
-            for b in &boxes {
-                let mut collision = false;
-                for bb in &boxes {
-                    let n_speed: Option<Vector2d> = b.collision(bb);
-                    if !n_speed.is_none() {
-                        updates.push(n_speed.unwrap());
-                        collision = true;
-                        break;
-                    }
-                }
-                if !collision {
-                    updates.push(b.vel);
-                }
-            }
-            for i in 0..boxes.len() {
-                let vel = boxes[i].vel;
-                boxes[i].update_speed(&updates[i]);
-            }
-            last_render = ticks;
-        }
 
-        if ticks - last_led_toggle >= 30 {
-            if counter % 2 == 0 {
-                lcd.set_background_color(Color::from_hex(0x006600));
-            } else {
-                lcd.set_background_color(Color::from_hex(0x000066));
-            }
-            counter += 1;
-            last_led_toggle = ticks;
-        }
-        // poll for new touch data
-        for touch in &touch::touches(&mut i2c_3).unwrap() {
-            //type cast for lcd
-            let t;
-            t = Vector2d {
-                x: touch.x as i16,
-                y: touch.y as i16,
-            };
-            for b in &mut boxes {
-                let b: &mut Box = b;
-                if b.hit(&t) {
-                    b.derender(&mut layer_1, Color::from_hex(0xe21212));
+            if ticks - last_led_toggle >= 30 {
+                if counter % 2 == 0 {
+                    lcd.set_background_color(Color::from_hex(0x006600));
                 } else {
-                    //do nothing
+                    lcd.set_background_color(Color::from_hex(0x000066));
+                }
+                counter += 1;
+                last_led_toggle = ticks;
+            }
+            // poll for new touch data
+            for touch in &touch::touches(&mut i2c_3).unwrap() {
+                //type cast for lcd
+                let t;
+                t = Vector2d {
+                    x: touch.x as i16,
+                    y: touch.y as i16,
+                };
+                let mut remove: alloc::vec::Vec<Box> = alloc::vec::Vec::new();
+                for b in &mut boxes {
+                    let b: &mut Box = b;
+                    if b.hit(&t) {
+                        b.derender(&mut layer_1, Color::from_hex(0xffffff));
+                        remove.push(b.clone());
+                        lcd.set_background_color(Color::from_hex(0x000066));
+                    }
+                }
+                for b in remove {
+                    boxes.remove_item(&b);
+                }
+            }
+
+            if counter < 0 {
+                break;
+            }
+        }
+        layer_1.clear();
+        boxes.clear();
+        let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
+        print!(
+            "\rYour survived for {} seconds, hit button for new turn",
+            seconds
+        );
+        b.render(&mut layer_1);
+        let mut new_game = false;
+        while !new_game {
+            for touch in &touch::touches(&mut i2c_3).unwrap() {
+                //type cast for lcd
+                let t;
+                t = Vector2d {
+                    x: touch.x as i16,
+                    y: touch.y as i16,
+                };
+                if b.hit(&t) {
+                    layer_1.clear();
+                    new_game = true;
+                    break;
                 }
             }
         }
+        for i in OFFSET..=WIDTH {
+            for j in OFFSET..=HEIGHT {
+                layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
+            }
+        }
+        counter = 5;
+        seconds = 0;
     }
 }
 
@@ -281,8 +336,8 @@ impl Box {
         &mut self,
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
     ) {
-        for y in 0..=self.size {
-            for x in 0..=self.size {
+        for y in 0..self.size {
+            for x in 0..self.size {
                 let i = 20 + x as usize + self.pos.x as usize;
                 let j = 20 + y as usize + self.pos.y as usize;
                 let wert = IMG[2 * (x + y * 30) as usize + 1];
@@ -305,8 +360,8 @@ impl Box {
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
         bg_color: Color,
     ) {
-        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
-            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
+        for i in (20 + self.pos.x)..(20 + self.pos.x + self.size as i16) {
+            for j in (20 + self.pos.y)..(20 + self.pos.y + self.size as i16) {
                 layer.print_point_color_at(i as usize, j as usize, bg_color)
             }
         }
@@ -369,5 +424,19 @@ impl Box {
         }
         self.pos.x += self.vel.x;
         self.pos.y += self.vel.y;
+    }
+}
+
+impl PartialEq for Box {
+    fn eq(&self, b: &Box) -> bool {
+        if self.pos.x == b.pos.x
+            && self.pos.y == b.pos.y
+            && self.vel.x == b.vel.x
+            && self.vel.y == b.vel.y
+            && self.size == b.size
+        {
+            return true;
+        }
+        false
     }
 }
