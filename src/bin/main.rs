@@ -18,7 +18,7 @@ const colors: [(u8, u8, u8); 5] = [
     (192, 192, 192),
     (255, 255, 0),
 ];
-const max_simultaneous_dragons_on_screen: u8 = 20;
+const max_simultaneous_dragons_on_screen: u8 = 15;
 
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
@@ -118,26 +118,31 @@ fn main() -> ! {
     let mut number_of_dragons = 0;
     let mut last_dragon_create = system_clock::ticks();
     let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
-        let mut boxes = vec![];
+    let mut boxes: alloc::vec::Vec<Box> = vec![];
     let mut counter = 0;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
-    for i in 0..8 {
-        number_of_dragons = number_of_dragons +1;
+    while number_of_dragons <= 8 {
         let tupel = colors[rand.gen_range(0, 4)];
-                    let color = Color::rgb(tupel.0, tupel.1, tupel.2);
-                    let dragon = Box::new(30,
-                                            rand.gen_range(0, 480),
-                                            rand.gen_range(0, 270),
-                                             rand.gen_range(-10, 10),
-                                             rand.gen_range(-10, 10),
-                                             color);
-                                             for d in &boxes.clone() {
-                        if !d.intersect(&dragon.clone()) {
-                            boxes.push(dragon);
-                        }
-                    }
-
+        let color = Color::rgb(tupel.0, tupel.1, tupel.2);
+        let dragon = Box::new(
+            30,
+            rand.gen_range(60, 400),
+            rand.gen_range(60, 200),
+            rand.gen_range(-10, 10),
+            rand.gen_range(-10, 10),
+            color,
+        );
+        let mut intersect = false;
+        for d in &boxes.clone() {
+            if d.intersect(&dragon.clone()) {
+                intersect = true;
+            }
+        }
+        if !intersect {
+            boxes.push(dragon);
+            number_of_dragons = number_of_dragons + 1;
+        }
     }
     let OFFSET = 20;
     let HEIGHT = 252;
@@ -148,11 +153,9 @@ fn main() -> ! {
         }
     }
 
-    for d in &boxes {
-            d.render(&mut layer_1);
+    for d in &mut boxes {
+        d.render(&mut layer_1);
     }
-
-
 
     //init variables for touch interactions
     let mut i2c_3 = init::init_i2c_3(peripherals.I2C3, &mut rcc);
@@ -166,29 +169,33 @@ fn main() -> ! {
 
     loop {
         let ticks = system_clock::ticks();
-        //evry half seconds roll for dragon creation
+        //every half seconds roll for dragon creation
         if ticks - last_dragon_create >= 10 {
             if number_of_dragons < max_simultaneous_dragons_on_screen {
                 //add dragon
-                let rng_number = rand.gen_range(0, 9);
-                if rng_number % 2 == 0 {
-                    let tupel = colors[rand.gen_range(0, 4)];
-                    let color = Color::rgb(tupel.0, tupel.1, tupel.2);
-                    let dragon = Box::new(30,
-                                            rand.gen_range(0, 480),
-                                            rand.gen_range(0, 270),
-                                             rand.gen_range(-10, 10),
-                                             rand.gen_range(-10, 10),
-                                             color);
-                    for d in &boxes.clone() {
-                        if !d.intersect(&dragon.clone()) {
-                            boxes.push(dragon);
-                        }
+                let tupel = colors[rand.gen_range(0, 4)];
+                let color = Color::rgb(tupel.0, tupel.1, tupel.2);
+                let dragon = Box::new(
+                    30,
+                    rand.gen_range(60, 400),
+                    rand.gen_range(60, 200),
+                    rand.gen_range(-10, 10),
+                    rand.gen_range(-10, 10),
+                    color,
+                );
+                let mut intersect = false;
+                for d in &boxes.clone() {
+                    if d.intersect(&dragon.clone()) {
+                        intersect = true;
                     }
                 }
+                if !intersect {
+                    boxes.push(dragon);
+                    number_of_dragons = number_of_dragons + 1;
+                }
+                //reset timer
+                last_dragon_create = ticks;
             }
-            //reset timer
-            last_dragon_create = ticks;
         }
         if ticks - last_render >= 1 {
             for b in &mut boxes {
