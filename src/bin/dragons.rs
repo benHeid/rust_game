@@ -4,12 +4,12 @@
 #![feature(alloc)]
 #![feature(vec_remove_item)]
 
-use rand::prelude::*;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
 use math;
+use rand::prelude::*;
 use rand::Rng;
 use rand::SeedableRng;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
@@ -37,25 +37,39 @@ pub struct Box {
     pub vel: Vector2d,
     pub col: Color,
 }
-
-struct Dragon {
-    boks: Box,
-}
+#[derive(Copy, Clone)]
+pub struct Dragon(pub Box);
 
 impl core::ops::Deref for Dragon {
     type Target = Box;
     fn deref(&self) -> &Box {
-        &self.boks
+        &self.0
     }
 }
 
 impl core::ops::DerefMut for Dragon {
     fn deref_mut(&mut self) -> &mut Box {
-        &mut self.boks
+        &mut self.0
     }
 }
 
-// impl Dragon {}
+impl Dragon {
+    pub fn render(
+        &mut self,
+        layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
+    ) {
+        for y in 0..self.size {
+            for x in 0..self.size {
+                let i = 20 + x as usize + self.pos.x as usize;
+                let j = 20 + y as usize + self.pos.y as usize;
+                let wert = IMG[2 * (x + y * 30) as usize + 1];
+                if wert > 25 {
+                    layer.print_point_color_at(i, j, self.col)
+                }
+            }
+        }
+    }
+}
 
 impl Box {
     pub fn new(size: u16, x: i16, y: i16, vel_x: i16, vel_y: i16, vel_col: Color) -> Self {
@@ -116,7 +130,9 @@ impl Box {
     pub fn hit(&mut self, hit: &Vector2d) -> bool {
         if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size as i16 + 20 {
             if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20 {
+                //swap color when false hit
                 self.col = Color::from_hex(0xffffff);
+                //derender when correct hit
                 return true;
             }
         }
