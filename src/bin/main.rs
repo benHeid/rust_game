@@ -13,6 +13,7 @@ extern crate alloc;
 
 const max_simultaneous_dragons_on_screen: u8 = 15;
 
+use crate::dragons::Dragon;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
@@ -115,22 +116,24 @@ fn main() -> ! {
     let mut number_of_dragons = 0;
     let mut last_dragon_create = system_clock::ticks();
     // let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
-    let mut boxes: alloc::vec::Vec<Box> = vec![];
+    let mut dragons: alloc::vec::Vec<Dragon> = vec![];
     let mut counter = 0;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
-            let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
+    let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
     while number_of_dragons <= 8 {
-        let dragon = Box::random(&mut rand);
+        // let dragon = Box::random(&mut rand);
+        let dragon = Dragon(Box::random(&mut rand));
+
         let mut intersect = false;
-        for d in &boxes.clone() {
+        for d in &dragons.clone() {
             if d.intersect(&dragon.clone()) {
                 intersect = true;
             }
         }
         if !intersect {
-            boxes.push(dragon);
+            dragons.push(dragon);
             number_of_dragons = number_of_dragons + 1;
         }
     }
@@ -147,7 +150,7 @@ fn main() -> ! {
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
-    for d in &mut boxes {
+    for d in &mut dragons {
         d.render(&mut layer_1);
     }
 
@@ -177,16 +180,16 @@ fn main() -> ! {
             if ticks - last_dragon_create >= 10 {
                 if number_of_dragons < max_simultaneous_dragons_on_screen {
                     //add dragon
-                    let dragon = Box::random(&mut rand);
+                    let dragon = Dragon(Box::random(&mut rand));
                     let mut intersect = false;
-                    for d in &boxes.clone() {
+                    for d in &dragons.clone() {
                         if d.intersect(&dragon.clone()) {
                             intersect = true;
                         }
                     }
 
                     if !intersect {
-                        boxes.push(dragon);
+                        dragons.push(dragon);
                         number_of_dragons = number_of_dragons + 1;
                     }
                     //reset timer
@@ -195,16 +198,16 @@ fn main() -> ! {
             }
 
             if ticks - last_render >= 1 {
-                for b in &mut boxes {
-                    let b: &mut Box = b;
+                for b in &mut dragons {
+                    let b: &mut Dragon = b;
                     b.derender(&mut layer_1, Color::from_hex(0xffffff));
                     b.next();
                     b.render(&mut layer_1);
                 }
                 let mut updates: alloc::vec::Vec<Vector2d> = vec![];
-                for b in &boxes {
+                for b in &dragons {
                     let mut collision = false;
-                    for bb in &boxes {
+                    for bb in &dragons {
                         let n_speed: Option<Vector2d> = b.collision(bb);
                         if !n_speed.is_none() {
                             updates.push(n_speed.unwrap());
@@ -216,8 +219,8 @@ fn main() -> ! {
                         updates.push(b.vel);
                     }
                 }
-                for i in 0..boxes.len() {
-                    boxes[i].update_speed(&updates[i]);
+                for i in 0..dragons.len() {
+                    dragons[i].update_speed(&updates[i]);
                 }
                 last_render = ticks;
             }
@@ -239,17 +242,18 @@ fn main() -> ! {
                     x: touch.x as i16,
                     y: touch.y as i16,
                 };
-                let mut remove: alloc::vec::Vec<Box> = alloc::vec::Vec::new();
-                for b in &mut boxes {
-                    let b: &mut Box = b;
-                    if b.hit(&t) {
-                        b.derender(&mut layer_1, Color::from_hex(0xffffff));
-                        remove.push(b.clone());
-                        lcd.set_background_color(Color::from_hex(0x000066));
+                let mut remove = alloc::vec::Vec::new();
+                // let mut remove: alloc::vec::Vec<usize> = alloc::vec::Vec::new();
+                for (i, d) in dragons.iter_mut().enumerate() {
+                    if d.hit(&t) {
+                        remove.push(i);
                     }
                 }
-                for b in remove {
-                    boxes.remove_item(&b);
+                for i in remove.iter().rev() {
+                    dragons
+                        .remove(*i)
+                        .derender(&mut layer_1, Color::from_hex(0xffffff));
+                    lcd.set_background_color(Color::from_hex(0x000066));
                 }
             }
 
@@ -258,7 +262,7 @@ fn main() -> ! {
             }
         }
         layer_1.clear();
-        boxes.clear();
+        dragons.clear();
         let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
         print!(
             "\rYour survived for {} seconds, hit button for new turn",
