@@ -1,24 +1,8 @@
-#![no_std]
-#![no_main]
-#![feature(alloc_error_handler)]
-#![feature(alloc)]
-#![feature(vec_remove_item)]
-
-use alloc_cortex_m::CortexMHeap;
-use core::alloc::Layout as AllocLayout;
-use core::panic::PanicInfo;
-use cortex_m_rt::{entry, exception};
 use libm;
 use rand::prelude::*;
 use rand::Rng;
-use rand::SeedableRng;
-use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
-    gpio::{GpioPort, OutputPin},
-    init,
-    lcd::{self, Color, TextWriter},
-    system_clock::{self, Hz},
-    touch,
+    lcd::{Color},
 };
 
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
@@ -110,11 +94,11 @@ impl Box {
         &mut self,
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
     ) {
-        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
-            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
-                layer.print_point_color_at(i as usize, j as usize, self.col)
-            }
-        }
+         for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
+             for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
+                 layer.print_point_color_at(i as usize, j as usize, Color::rgb(IMG[2*i as usize+j as usize], 0, 0))
+             }
+         }
     }
 
     pub fn derender(
@@ -142,17 +126,14 @@ impl Box {
 
     pub fn collision(&self, b: &Box) -> Option<Vector2d> {
         if self.intersect(b) {
-            //self - (self.velx -b.velx) * [normalvector=(self.center - b.center)] + y seite )
-            // geteilt durch (self.center.x - b.center.x)^2 * y_seite
-            // mal (self.center - b.center)
             let normal_vector = Vector2d{x:self.pos.x - b.pos.x, y:self.pos.y - b.pos.y}; 
             let inner_product_vel = (self.vel.x - b.vel.x) * normal_vector.x + (self.vel.y - b.vel.y) * normal_vector.y;
             let squared_dist = normal_vector.x * normal_vector.x + normal_vector.y * normal_vector.y;
 
 
             return Some(Vector2d {
-                x: self.vel.x - libm::ceilf((inner_product_vel as f32 /squared_dist as f32 * normal_vector.x as f32)) as i16,
-                y: self.vel.y - libm::ceilf((inner_product_vel as f32 /squared_dist as f32 * normal_vector.y as f32)) as i16,
+                x: self.vel.x - libm::ceilf(inner_product_vel as f32 /squared_dist as f32 * normal_vector.x as f32) as i16,
+                y: self.vel.y - libm::ceilf(inner_product_vel as f32 /squared_dist as f32 * normal_vector.y as f32) as i16,
             });
         } else {
                 return None;
@@ -186,19 +167,19 @@ impl Box {
 
 
     pub fn next(&mut self) {
-        let HEIGHT = 252;
-        let WIDTH = 460;
-        let OFFSET = 20;
-        if OFFSET + self.size as i16 + self.pos.x as i16 + self.vel.x > WIDTH {
+        let height = 252;
+        let width = 460;
+        let offset = 20;
+        if offset + self.size as i16 + self.pos.x as i16 + self.vel.x > width {
             self.vel.x *= -1;
         }
-        if OFFSET + self.pos.x as i16 + self.vel.x < 20 {
+        if offset + self.pos.x as i16 + self.vel.x < 20 {
             self.vel.x *= -1;
         }
-        if OFFSET + self.size as i16 + self.pos.y as i16 + self.vel.y > HEIGHT {
+        if offset + self.size as i16 + self.pos.y as i16 + self.vel.y > height {
             self.vel.y *= -1;
         }
-        if OFFSET + self.pos.y as i16 + self.vel.y < 20 {
+        if offset + self.pos.y as i16 + self.vel.y < 20 {
             self.vel.y *= -1;
         }
         self.pos.x += self.vel.x;
