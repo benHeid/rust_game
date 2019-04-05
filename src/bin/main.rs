@@ -175,12 +175,6 @@ fn main() -> ! {
             }
 
             if ticks - last_render >= 1 {
-                for b in &mut dragons {
-                    let b: &mut Dragon = b;
-                    b.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
-                    b.next();
-                    b.render(&mut layer_1);
-                }
                 let mut updates: alloc::vec::Vec<Vector2d> = vec![];
                 for b in &dragons {
                     let mut collision = false;
@@ -198,6 +192,11 @@ fn main() -> ! {
                 }
                 for i in 0..dragons.len() {
                     dragons[i].update_speed(&updates[i]);
+                }
+                for b in &mut dragons {
+                    b.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
+                    b.next();
+                    b.render(&mut layer_1);
                 }
                 last_render = ticks;
             }

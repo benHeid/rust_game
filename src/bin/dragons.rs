@@ -140,11 +140,11 @@ impl Box {
             Some(Vector2d {
                 x: self.vel.x
                     - libm::ceilf(
-                        inner_product_vel as f32 / squared_dist as f32 * normal_vector.x as f32,
+                        f32::from(inner_product_vel) / f32::from(squared_dist) * f32::from(normal_vector.x),
                     ) as i16,
                 y: self.vel.y
                     - libm::ceilf(
-                        inner_product_vel as f32 / squared_dist as f32 * normal_vector.y as f32,
+                        f32::from(inner_product_vel) / f32::from(squared_dist) * f32::from(normal_vector.y),
                     ) as i16,
             })
         } else {
@@ -162,8 +162,8 @@ impl Box {
             return false;
         }
 
-        ((self.pos.x - b.pos.x).abs() < (self.size as i16))
-            && ((self.pos.y - b.pos.y).abs() < (self.size as i16))
+        ((self.pos.x - b.pos.x + self.vel.x -b.vel.x).abs() < (self.size as i16 - 3))
+            && ((self.pos.y - b.pos.y + self.vel.y - b.vel.y).abs() < (self.size as i16 - 3))
     }
 
     pub fn update_speed(&mut self, new_speed: &Vector2d) {
