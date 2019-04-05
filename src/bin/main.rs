@@ -71,14 +71,7 @@ fn main() -> ! {
     let mut fmc = peripherals.FMC;
     let mut ltdc = peripherals.LTDC;
     let mut sai_2 = peripherals.SAI2;
-    //let mut rng = peripherals.RNG;
-    //let mut sdmmc = peripherals.SDMMC1;
-    //let syscfg = peripherals.SYSCFG;
-    //let ethernet_mac = peripherals.ETHERNET_MAC;
-    //let ethernet_dma = peripherals.ETHERNET_DMA;
-    //let mut nvic_stir = peripherals.NVIC_STIR;
-    //let mut tim6 = peripherals.TIM6;
-    //let exti = peripherals.EXTI;
+
 
     init::init_system_clock_216mhz(&mut rcc, &mut pwr, &mut flash);
     init::enable_gpio_ports(&mut rcc);
@@ -157,7 +150,7 @@ fn main() -> ! {
                 played_time_in_seconds += 1;
                 last_second = ticks;
                 print!(
-                    "\r           {} seconds left                                          ",
+                    "\r           {} seconds left                            ",
                     left_time_in_seconds
                 );
             }
@@ -208,17 +201,6 @@ fn main() -> ! {
                 }
                 last_render = ticks;
             }
-
-            // if ticks - last_led_toggle >= 30 {
-            //     if counter % 2 == 0 {
-            //         lcd.set_background_color(Color::from_hex(0x006600));
-            //     } else {
-            //         lcd.set_background_color(Color::from_hex(0x000066));
-            //     }
-            //     counter += 1;
-            //     last_led_toggle = ticks;
-            // }
-            // poll for new touch data
             for touch in &touch::touches(&mut i2c_3).unwrap() {
                 //type cast for lcd
                 let t;
