@@ -3,6 +3,7 @@
 #![feature(alloc_error_handler)]
 #![feature(alloc)]
 #![feature(vec_remove_item)]
+#![warn(clippy::all)]
 
 #[macro_use]
 extern crate stm32f7;
@@ -14,6 +15,7 @@ extern crate alloc;
 const max_simultaneous_dragons_on_screen: u8 = 15;
 
 use crate::dragons::Dragon;
+use crate::dragons::COLORS;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
@@ -21,6 +23,7 @@ use cortex_m_rt::{entry, exception};
 use math;
 use rand::Rng;
 use rand::SeedableRng;
+use rand::StdRng;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
     gpio::{GpioPort, OutputPin},
@@ -33,6 +36,10 @@ use stm32f7_discovery::{
 mod dragons;
 use dragons::Box;
 use dragons::Vector2d;
+
+const OFFSET: usize = 20;
+const HEIGHT: usize = 252;
+const WIDTH: usize = 460;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -115,38 +122,25 @@ fn main() -> ! {
     lcd::init_stdout(layer_2);
     let mut number_of_dragons = 0;
     let mut last_dragon_create = system_clock::ticks();
-    // let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
     let mut dragons: alloc::vec::Vec<Dragon> = vec![];
-    let mut counter = 0;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
     let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
-    while number_of_dragons <= 8 {
-        // let dragon = Box::random(&mut rand);
-        let dragon = Dragon(Box::random(&mut rand));
+    let mut rgb_tupel = COLORS[rand.gen_range(0, 4)];
+    let mut edge_color = Color::rgb(rgb_tupel.0, rgb_tupel.1, rgb_tupel.2);
+    lcd.set_background_color(edge_color);
+    let mut played_time_in_seconds = 0;
+    let mut left_time_in_seconds = 0;
+    initiateScreen(
+        &mut played_time_in_seconds,
+        &mut left_time_in_seconds,
+        &mut dragons,
+        &mut number_of_dragons,
+        &mut rand,
+        &mut layer_1,
+    );
 
-        let mut intersect = false;
-        for d in &dragons.clone() {
-            if d.intersect(&dragon.clone()) {
-                intersect = true;
-            }
-        }
-        if !intersect {
-            dragons.push(dragon);
-            number_of_dragons = number_of_dragons + 1;
-        }
-    }
-    let OFFSET = 20;
-    let HEIGHT = 252;
-    let WIDTH = 460;
-    for i in OFFSET..=WIDTH {
-        for j in OFFSET..=HEIGHT {
-            layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
-        }
-    }
-
-    let mut counter = 5;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
@@ -163,17 +157,16 @@ fn main() -> ! {
     // touch initialization should be done after audio initialization, because the touch
     // controller might not be ready yet
     touch::check_family_id(&mut i2c_3).unwrap();
-    let mut seconds = 0;
     loop {
         loop {
             let ticks = system_clock::ticks();
             if ticks - last_second >= 20 {
-                counter -= 1;
-                seconds += 1;
+                left_time_in_seconds -= 1;
+                played_time_in_seconds += 1;
                 last_second = ticks;
                 print!(
                     "\r           {} seconds left                                          ",
-                    counter
+                    left_time_in_seconds
                 );
             }
             //evry half seconds roll for dragon creation
@@ -225,15 +218,15 @@ fn main() -> ! {
                 last_render = ticks;
             }
 
-            if ticks - last_led_toggle >= 30 {
-                if counter % 2 == 0 {
-                    lcd.set_background_color(Color::from_hex(0x006600));
-                } else {
-                    lcd.set_background_color(Color::from_hex(0x000066));
-                }
-                counter += 1;
-                last_led_toggle = ticks;
-            }
+            // if ticks - last_led_toggle >= 30 {
+            //     if counter % 2 == 0 {
+            //         lcd.set_background_color(Color::from_hex(0x006600));
+            //     } else {
+            //         lcd.set_background_color(Color::from_hex(0x000066));
+            //     }
+            //     counter += 1;
+            //     last_led_toggle = ticks;
+            // }
             // poll for new touch data
             for touch in &touch::touches(&mut i2c_3).unwrap() {
                 //type cast for lcd
@@ -245,19 +238,32 @@ fn main() -> ! {
                 let mut remove = alloc::vec::Vec::new();
                 // let mut remove: alloc::vec::Vec<usize> = alloc::vec::Vec::new();
                 for (i, d) in dragons.iter_mut().enumerate() {
-                    if d.hit(&t) {
+                    let (a, b) = d.hit(&t, &mut edge_color);
+                    if a {
                         remove.push(i);
+                        if b {
+                            //matching hit with edge color
+                            left_time_in_seconds += 1;
+                        } else {
+                            //non matching hit
+                            left_time_in_seconds -= 1;
+                        }
                     }
                 }
                 for i in remove.iter().rev() {
                     dragons
                         .remove(*i)
                         .derender(&mut layer_1, Color::from_hex(0xffffff));
-                    lcd.set_background_color(Color::from_hex(0x000066));
+                    let mut new_edge_color = edge_color;
+                    while new_edge_color.to_rgb() == edge_color.to_rgb() {
+                        rgb_tupel = COLORS[rand.gen_range(0, 4)];
+                        new_edge_color = Color::rgb(rgb_tupel.0, rgb_tupel.1, rgb_tupel.2);
+                    }
+                    lcd.set_background_color(new_edge_color);
                 }
             }
 
-            if counter < 0 {
+            if left_time_in_seconds == 0 {
                 break;
             }
         }
@@ -266,7 +272,7 @@ fn main() -> ! {
         let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
         print!(
             "\rYour survived for {} seconds, hit button for new turn",
-            seconds
+            played_time_in_seconds
         );
         b.render(&mut layer_1);
         let mut new_game = false;
@@ -281,16 +287,43 @@ fn main() -> ! {
                 if b.hit(&t) {
                     layer_1.clear();
                     new_game = true;
+                    initiateScreen(
+                        &mut played_time_in_seconds,
+                        &mut left_time_in_seconds,
+                        &mut dragons,
+                        &mut number_of_dragons,
+                        &mut rand,
+                        &mut layer_1,
+                    );
                     break;
                 }
             }
         }
-        for i in OFFSET..=WIDTH {
-            for j in OFFSET..=HEIGHT {
-                layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
-            }
+    }
+}
+
+fn initiateScreen(
+    played_time_in_seconds: &mut u8,
+    left_time_in_seconds: &mut u8,
+    dragons: &mut alloc::vec::Vec<Dragon>,
+    number_of_dragons: &mut u8,
+    rand: &mut rand::rngs::StdRng,
+    layer_1: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
+) {
+    for i in OFFSET..=WIDTH {
+        for j in OFFSET..=HEIGHT {
+            layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
         }
-        counter = 5;
-        seconds = 0;
+    }
+    *played_time_in_seconds = 0;
+    *left_time_in_seconds = 20;
+    dragons.clear();
+    while *number_of_dragons <= 8 {
+        let dragon = Dragon(Box::random(&mut *rand));
+        let intersect = dragons.iter().any(|d| d.intersect(&*dragon));
+        if !intersect {
+            dragons.push(dragon);
+            *number_of_dragons += 1;
+        }
     }
 }
