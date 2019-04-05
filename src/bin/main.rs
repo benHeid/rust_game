@@ -117,7 +117,6 @@ fn main() -> ! {
     layer_1.clear();
     layer_2.clear();
     lcd::init_stdout(layer_2);
-    let mut number_of_dragons = 0;
     let mut last_dragon_create = system_clock::ticks();
     let mut dragons: alloc::vec::Vec<Dragon> = vec![];
     let mut _last_second = system_clock::ticks();
@@ -131,7 +130,6 @@ fn main() -> ! {
         &mut played_time_in_seconds,
         &mut left_time_in_seconds,
         &mut dragons,
-        &mut number_of_dragons,
         &mut rand,
         &mut layer_1,
     );
@@ -165,7 +163,7 @@ fn main() -> ! {
             }
             //evry half seconds roll for dragon creation
             if ticks - last_dragon_create >= 10
-                && number_of_dragons < MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN
+                && dragons.len() < MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN as usize
             {
                 //add dragon
                 let dragon = Dragon(Box::random(&mut rand));
@@ -174,11 +172,10 @@ fn main() -> ! {
                     if d.intersect(&dragon) {
                         intersect = true;
                     }
-                }
 
-                if !intersect {
-                    dragons.push(dragon);
-                    number_of_dragons += 1;
+                    if !intersect {
+                        dragons.push(dragon);
+                    }
                 }
                 //reset timer
                 last_dragon_create = ticks;
@@ -267,7 +264,6 @@ fn main() -> ! {
             &mut played_time_in_seconds,
             &mut left_time_in_seconds,
             &mut dragons,
-            &mut number_of_dragons,
             &mut rand,
             &mut layer_1,
         );
@@ -318,7 +314,6 @@ fn initiate_screen(
     played_time_in_seconds: &mut u8,
     left_time_in_seconds: &mut u8,
     dragons: &mut alloc::vec::Vec<Dragon>,
-    number_of_dragons: &mut u8,
     rand: &mut rand::rngs::StdRng,
     layer_1: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
 ) {
@@ -330,12 +325,11 @@ fn initiate_screen(
     *played_time_in_seconds = 0;
     *left_time_in_seconds = 20;
     dragons.clear();
-    while *number_of_dragons <= 8 {
+    while dragons.len() <= 8 {
         let dragon = Dragon(Box::random(&mut *rand));
         let intersect = dragons.iter().any(|d| d.intersect(&*dragon));
         if !intersect {
             dragons.push(dragon);
-            *number_of_dragons += 1;
         }
     }
 }
