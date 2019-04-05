@@ -260,8 +260,22 @@ fn main() -> ! {
                 break;
             }
         }
-        layer_1.clear();
         dragons.clear();
+        game_over(&mut layer_1, &seconds, &mut i2c_3);
+        for i in OFFSET..=WIDTH {
+            for j in OFFSET..=HEIGHT {
+                layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
+            }
+        }
+        counter = 5;
+        seconds = 0;
+    }
+}
+
+fn game_over(mut layer_1:&mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
+             seconds:& i16,
+             mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>) {
+        layer_1.clear();
         let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
         print!(
             "\rYour survived for {} seconds, hit button for new turn",
@@ -284,12 +298,4 @@ fn main() -> ! {
                 }
             }
         }
-        for i in OFFSET..=WIDTH {
-            for j in OFFSET..=HEIGHT {
-                layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
-            }
-        }
-        counter = 5;
-        seconds = 0;
-    }
 }
