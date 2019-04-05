@@ -150,8 +150,8 @@ fn main() -> ! {
                 played_time_in_seconds += 1;
                 last_second = ticks;
                 print!(
-                    "\r           {} seconds left                            ",
-                    left_time_in_seconds
+                    "\r           {} seconds left      {}              ",
+                    left_time_in_seconds, dragons.len()
                 );
             }
             //evry half seconds roll for dragon creation
@@ -165,11 +165,11 @@ fn main() -> ! {
                     if d.intersect(&dragon) {
                         intersect = true;
                     }
-
-                    if !intersect {
-                        dragons.push(dragon);
-                    }
                 }
+            if !intersect {
+                dragons.push(dragon);
+            }
+                
                 //reset timer
                 last_dragon_create = ticks;
             }
