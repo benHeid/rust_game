@@ -96,23 +96,11 @@ impl Box {
         &mut self,
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
     ) {
-        for y in 0..self.size {
-            for x in 0..self.size {
-                let i = 20 + x as usize + self.pos.x as usize;
-                let j = 20 + y as usize + self.pos.y as usize;
-                let wert = IMG[2 * (x + y * 30) as usize + 1];
-                if wert > 25 {
-                    //let c = Color::rgb(255, 0, 0);
-                    layer.print_point_color_at(i, j, self.col)
-                }
+        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
+            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
+                layer.print_point_color_at(i as usize, j as usize, self.col)
             }
         }
-        // for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
-        //     for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
-        //         layer.print_point_color_at(i as usize, j as usize, Color::rgb(IMG[2*i as usize+j as usize], 0, 0))
-        //         //layer.print_point_color_at(i as usize, j as usize, self.col)
-        //     }
-        // }
     }
 
     pub fn derender(
