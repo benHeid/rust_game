@@ -8,7 +8,7 @@ use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
-use math;
+use libm;
 use rand::prelude::*;
 use rand::Rng;
 use rand::SeedableRng;
@@ -141,12 +141,20 @@ impl Box {
 
     pub fn collision(&self, b: &Box) -> Option<Vector2d> {
         if self.intersect(b) {
+            //self - (self.velx -b.velx) * [normalvector=(self.center - b.center)] + y seite )
+            // geteilt durch (self.center.x - b.center.x)^2 * y_seite
+            // mal (self.center - b.center)
+            let normal_vector = Vector2d{x:self.pos.x - b.pos.x, y:self.pos.y - b.pos.y}; 
+            let inner_product_vel = (self.vel.x - b.vel.x) * normal_vector.x + (self.vel.y - b.vel.y) * normal_vector.y;
+            let squared_dist = normal_vector.x * normal_vector.x + normal_vector.y * normal_vector.y;
+
+
             return Some(Vector2d {
-                x: b.vel.x,
-                y: b.vel.y,
+                x: self.vel.x - libm::ceilf((inner_product_vel as f32 /squared_dist as f32 * normal_vector.x as f32)) as i16,
+                y: self.vel.y - libm::ceilf((inner_product_vel as f32 /squared_dist as f32 * normal_vector.y as f32)) as i16,
             });
         } else {
-            return None;
+                return None;
         }
     }
 
@@ -159,14 +167,22 @@ impl Box {
         {
             return false;
         }
-        (math::fabsf(self.pos.x as f32 - b.pos.x as f32) * 2.0 < (self.size as f32 + b.size as f32))
-            && (math::fabsf(self.pos.y as f32 - b.pos.y as f32) * 2.0
-                < (self.size as f32 + b.size as f32))
+        
+        ((self.pos.x - b.pos.x).abs() < (self.size as i16))
+            && ((self.pos.y - b.pos.y).abs()
+                < (self.size as i16))
     }
 
     pub fn update_speed(&mut self, new_speed: &Vector2d) {
         self.vel = *new_speed;
+        if self.vel.x > 10 {
+            self.vel.x = 10;
+        }
+        if self.vel.y > 10 {
+            self.vel.y = 10;
+        }
     }
+
 
     pub fn next(&mut self) {
         let HEIGHT = 252;
