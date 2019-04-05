@@ -97,7 +97,7 @@ impl Box {
                 layer.print_point_color_at(
                     i as usize,
                     j as usize,
-                    Color::rgb(IMG[2 * i as usize + j as usize], 0, 0),
+                    self.col,
                 )
             }
         }
