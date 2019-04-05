@@ -5,14 +5,13 @@
 #![feature(vec_remove_item)]
 #![warn(clippy::all)]
 
-#[macro_use]
 extern crate stm32f7;
 #[macro_use]
 extern crate stm32f7_discovery;
 #[macro_use]
 extern crate alloc;
 
-const max_simultaneous_dragons_on_screen: u8 = 15;
+const MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN: u8 = 15;
 const GAME_OVER: [u8; 300 * 75 * 4] = *include_bytes!("game_over.data");
 
 use crate::dragons::Dragon;
@@ -23,12 +22,11 @@ use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
 use rand::Rng;
 use rand::SeedableRng;
-use rand::StdRng;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
 use stm32f7_discovery::{
     gpio::{GpioPort, OutputPin},
     init,
-    lcd::{self, Color, TextWriter},
+    lcd::{self, Color},
     system_clock::{self, Hz},
     touch,
 };
@@ -56,7 +54,7 @@ fn SysTick() {
 }
 
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
+fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
@@ -64,7 +62,6 @@ fn panic(info: &PanicInfo) -> ! {
 fn main() -> ! {
     let core_peripherals = CorePeripherals::take().unwrap();
     let mut systick = core_peripherals.SYST;
-    let mut nvic = core_peripherals.NVIC;
 
     let peripherals = Peripherals::take().unwrap();
     let mut rcc = peripherals.RCC;
@@ -123,16 +120,14 @@ fn main() -> ! {
     let mut number_of_dragons = 0;
     let mut last_dragon_create = system_clock::ticks();
     let mut dragons: alloc::vec::Vec<Dragon> = vec![];
-    let mut last_led_toggle = system_clock::ticks();
-    let mut last_render = system_clock::ticks();
-    let mut last_second = system_clock::ticks();
-    let mut rand = rand::rngs::StdRng::seed_from_u64(318273678346);
+    let mut _last_second = system_clock::ticks();
+    let mut rand = rand::rngs::StdRng::seed_from_u64(318_273_678_346);
     let mut rgb_tupel = COLORS[rand.gen_range(0, 4)];
     let mut edge_color = Color::rgb(rgb_tupel.0, rgb_tupel.1, rgb_tupel.2);
     lcd.set_background_color(edge_color);
     let mut played_time_in_seconds = 0;
     let mut left_time_in_seconds = 0;
-    initiateScreen(
+    initiate_screen(
         &mut played_time_in_seconds,
         &mut left_time_in_seconds,
         &mut dragons,
@@ -141,7 +136,6 @@ fn main() -> ! {
         &mut layer_1,
     );
 
-    let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
     for d in &mut dragons {
@@ -170,30 +164,30 @@ fn main() -> ! {
                 );
             }
             //evry half seconds roll for dragon creation
-            if ticks - last_dragon_create >= 10 {
-                if number_of_dragons < max_simultaneous_dragons_on_screen {
-                    //add dragon
-                    let dragon = Dragon(Box::random(&mut rand));
-                    let mut intersect = false;
-                    for d in &dragons.clone() {
-                        if d.intersect(&dragon.clone()) {
-                            intersect = true;
-                        }
+            if ticks - last_dragon_create >= 10
+                && number_of_dragons < MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN
+            {
+                //add dragon
+                let dragon = Dragon(Box::random(&mut rand));
+                let mut intersect = false;
+                for d in &dragons.clone() {
+                    if d.intersect(&dragon) {
+                        intersect = true;
                     }
-
-                    if !intersect {
-                        dragons.push(dragon);
-                        number_of_dragons = number_of_dragons + 1;
-                    }
-                    //reset timer
-                    last_dragon_create = ticks;
                 }
+
+                if !intersect {
+                    dragons.push(dragon);
+                    number_of_dragons += 1;
+                }
+                //reset timer
+                last_dragon_create = ticks;
             }
 
             if ticks - last_render >= 1 {
                 for b in &mut dragons {
                     let b: &mut Dragon = b;
-                    b.derender(&mut layer_1, Color::from_hex(0xffffff));
+                    b.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
                     b.next();
                     b.render(&mut layer_1);
                 }
@@ -238,7 +232,7 @@ fn main() -> ! {
                 let mut remove = alloc::vec::Vec::new();
                 // let mut remove: alloc::vec::Vec<usize> = alloc::vec::Vec::new();
                 for (i, d) in dragons.iter_mut().enumerate() {
-                    let (a, b) = d.hit(&t, &mut edge_color);
+                    let (a, b) = d.hit(t, &mut edge_color);
                     if a {
                         remove.push(i);
                         if b {
@@ -253,7 +247,7 @@ fn main() -> ! {
                 for i in remove.iter().rev() {
                     dragons
                         .remove(*i)
-                        .derender(&mut layer_1, Color::from_hex(0xffffff));
+                        .derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
                     let mut new_edge_color = edge_color;
                     while new_edge_color.to_rgb() == edge_color.to_rgb() {
                         rgb_tupel = COLORS[rand.gen_range(0, 4)];
@@ -268,8 +262,8 @@ fn main() -> ! {
             }
         }
         dragons.clear();
-        game_over(&mut layer_1, &mut played_time_in_seconds, &mut i2c_3);
-        initiateScreen(
+        game_over(&mut layer_1, played_time_in_seconds, &mut i2c_3);
+        initiate_screen(
             &mut played_time_in_seconds,
             &mut left_time_in_seconds,
             &mut dragons,
@@ -282,11 +276,11 @@ fn main() -> ! {
 
 fn game_over(
     mut layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
-    played_time_in_seconds: &u8,
+    played_time_in_seconds: u8,
     mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
 ) {
     layer.clear();
-    let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
+    let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x0066_0000));
     print!(
         "\rYour survived for {} seconds, hit button for new turn",
         played_time_in_seconds
@@ -297,7 +291,7 @@ fn game_over(
             let j = 10 + y as usize;
             let wert = GAME_OVER[4 * (x + y * 300) as usize];
             if wert < 25 {
-                layer.print_point_color_at(i, j, Color::from_hex(0xff0000))
+                layer.print_point_color_at(i, j, Color::from_hex(0x00ff_0000))
             }
         }
     }
@@ -320,7 +314,7 @@ fn game_over(
     }
 }
 
-fn initiateScreen(
+fn initiate_screen(
     played_time_in_seconds: &mut u8,
     left_time_in_seconds: &mut u8,
     dragons: &mut alloc::vec::Vec<Dragon>,
@@ -330,7 +324,7 @@ fn initiateScreen(
 ) {
     for i in OFFSET..=WIDTH {
         for j in OFFSET..=HEIGHT {
-            layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
+            layer_1.print_point_color_at(i, j, Color::from_hex(0x00ff_ffff));
         }
     }
     *played_time_in_seconds = 0;
