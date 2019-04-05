@@ -268,59 +268,53 @@ fn main() -> ! {
             }
         }
         dragons.clear();
-        game_over(&mut layer_1, &seconds, &mut i2c_3);
-        for i in OFFSET..=WIDTH {
-            for j in OFFSET..=HEIGHT {
-                layer_1.print_point_color_at(i, j, Color::from_hex(0xffffff));
-            }
-        }
-        counter = 5;
-        seconds = 0;
+        game_over(&mut layer_1, &mut played_time_in_seconds, &mut i2c_3);
+        initiateScreen(
+            &mut played_time_in_seconds,
+            &mut left_time_in_seconds,
+            &mut dragons,
+            &mut number_of_dragons,
+            &mut rand,
+            &mut layer_1,
+        );
     }
 }
 
-fn game_over(mut layer:&mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
-             seconds:& i16,
-             mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>) {
-        layer.clear();
-        let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
-        print!(
-            "\rYour survived for {} seconds, hit button for new turn",
-            played_time_in_seconds
-        );
-        for y in 0..75 {
-            for x in 0..300 {
-                let i = 90 + x as usize;
-                let j = 10 + y as usize;
-                let wert = GAME_OVER[4 * (x + y * 300) as usize];
-                if wert < 25{
-                    layer.print_point_color_at(i, j, Color::from_hex(0xff0000))
-                }
+fn game_over(
+    mut layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
+    played_time_in_seconds: &u8,
+    mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
+) {
+    layer.clear();
+    let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x660000));
+    print!(
+        "\rYour survived for {} seconds, hit button for new turn",
+        played_time_in_seconds
+    );
+    for y in 0..75 {
+        for x in 0..300 {
+            let i = 90 + x as usize;
+            let j = 10 + y as usize;
+            let wert = GAME_OVER[4 * (x + y * 300) as usize];
+            if wert < 25 {
+                layer.print_point_color_at(i, j, Color::from_hex(0xff0000))
             }
         }
-        b.render(&mut layer);
-        let mut new_game = false;
-        while !new_game {
-            for touch in &touch::touches(&mut i2c_3).unwrap() {
-                //type cast for lcd
-                let t;
-                t = Vector2d {
-                    x: touch.x as i16,
-                    y: touch.y as i16,
-                };
-                if b.hit(&t) {
-                    layer.clear();
-                    new_game = true;
-                    initiateScreen(
-                        &mut played_time_in_seconds,
-                        &mut left_time_in_seconds,
-                        &mut dragons,
-                        &mut number_of_dragons,
-                        &mut rand,
-                        &mut layer_1,
-                    );
-                    break;
-                }
+    }
+    b.render(&mut layer);
+    let mut new_game = false;
+    while !new_game {
+        for touch in &touch::touches(&mut i2c_3).unwrap() {
+            //type cast for lcd
+            let t;
+            t = Vector2d {
+                x: touch.x as i16,
+                y: touch.y as i16,
+            };
+            if b.hit(&t) {
+                layer.clear();
+                new_game = true;
+                break;
             }
         }
     }
