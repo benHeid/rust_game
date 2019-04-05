@@ -18,7 +18,6 @@ use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
-use math;
 use rand::Rng;
 use rand::SeedableRng;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
@@ -146,7 +145,7 @@ fn main() -> ! {
         }
     }
 
-    let mut counter = 5;
+    let mut counter = 100;
     let mut last_led_toggle = system_clock::ticks();
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
