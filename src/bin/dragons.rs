@@ -54,7 +54,6 @@ impl Dragon {
     pub fn hit(&mut self, hit: Vector2d, background_col: &mut Color) -> (bool, bool) {
         if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size as i16 + 20 {
             //set derender color of object
-            self.col = Color::from_hex(0x00ff_ffff);
             if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20 {
                 if self.col.to_rgb() == background_col.to_rgb() {
                     return (true, true);
