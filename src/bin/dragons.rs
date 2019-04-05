@@ -22,7 +22,7 @@ use stm32f7_discovery::{
 };
 
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
-const COLORS: [(u8, u8, u8); 5] = [
+pub static COLORS: [(u8, u8, u8); 5] = [
     (255, 0, 0),
     (0, 128, 0),
     (0, 0, 128),
@@ -68,6 +68,20 @@ impl Dragon {
                 }
             }
         }
+    }
+    pub fn hit(&mut self, hit: &Vector2d, background_col: &mut Color) -> (bool, bool) {
+        if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size as i16 + 20 {
+            //set derender color of object
+            self.col = Color::from_hex(0xffffff);
+            if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20 {
+                if self.col.to_rgb() == background_col.to_rgb() {
+                    return (true, true);
+                } else {
+                    return (true, false);
+                }
+            }
+        }
+        (false, false)
     }
 }
 
@@ -117,10 +131,9 @@ impl Box {
 
     pub fn hit(&mut self, hit: &Vector2d) -> bool {
         if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size as i16 + 20 {
+            //set derender color of object
+            self.col = Color::from_hex(0xffffff);
             if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20 {
-                //swap color when false hit
-                self.col = Color::from_hex(0xffffff);
-                //derender when correct hit
                 return true;
             }
         }
