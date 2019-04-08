@@ -154,9 +154,8 @@ fn main() -> ! {
                 played_time_in_seconds += 1;
                 last_second = ticks;
                 print!(
-                    "\r           {} seconds left      {}              ",
-                    left_time_in_seconds,
-                    dragons.len()
+                    "\r           {} seconds left                   ",
+                    left_time_in_seconds
                 );
             }
             //evry half seconds roll for dragon creation
