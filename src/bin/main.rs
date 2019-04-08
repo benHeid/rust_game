@@ -15,12 +15,12 @@ const MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN: u8 = 15;
 const GAME_OVER: [u8; 300 * 75 * 4] = *include_bytes!("game_over.data");
 const COVER_SCREEN: [u8; 481 * 272 * 3] = *include_bytes!("coverScreen..data");
 
-use crate::dragons::Dragon;
-use crate::dragons::COLORS;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
 use cortex_m_rt::{entry, exception};
+use dragons::Dragon;
+use dragons::COLORS;
 use rand::Rng;
 use rand::SeedableRng;
 use stm32f7::stm32f7x6::{CorePeripherals, Peripherals};
@@ -34,6 +34,7 @@ use stm32f7_discovery::{
 
 mod dragons;
 use dragons::Box;
+use dragons::Circle;
 use dragons::Vector2d;
 
 const OFFSET: usize = 20;
@@ -163,7 +164,7 @@ fn main() -> ! {
                 && dragons.len() < MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN as usize
             {
                 //add dragon
-                let dragon = Dragon(Box::random(&mut rand));
+                let dragon = Dragon(Circle::random(&mut rand));
                 let mut intersect = false;
                 for d in &dragons.clone() {
                     if d.intersect(&dragon) {
@@ -195,7 +196,7 @@ fn main() -> ! {
                     }
                 }
                 for i in 0..dragons.len() {
-                    dragons[i].update_speed(&updates[i]);
+                    dragons[i].update_speed(updates[i]);
                 }
                 for b in &mut dragons {
                     b.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
@@ -219,7 +220,7 @@ fn main() -> ! {
                         remove.push(i);
                         if b {
                             //matching hit with edge color
-                            left_time_in_seconds += 1;
+                            left_time_in_seconds += 3;
                         } else {
                             //non matching hit
                             left_time_in_seconds -= 1;
@@ -263,6 +264,7 @@ fn game_over(
 ) {
     layer.clear();
     let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x0066_0000));
+
     print!(
         "\rYour survived for {} seconds, hit button for new turn",
         played_time_in_seconds
@@ -277,6 +279,8 @@ fn game_over(
             }
         }
     }
+
+
     b.render(&mut layer);
     let mut new_game = false;
     while !new_game {
@@ -287,8 +291,8 @@ fn game_over(
                 x: touch.x as i16,
                 y: touch.y as i16,
             };
-            if b.hit(&t) {
-                layer.clear();
+            if b.hit(t) {
+                b.derender(layer, Color::from_hex(0x00ff_ffff));
                 new_game = true;
                 break;
             }
@@ -312,7 +316,7 @@ fn initiate_screen(
     *left_time_in_seconds = 20;
     dragons.clear();
     while dragons.len() <= 8 {
-        let dragon = Dragon(Box::random(&mut *rand));
+        let dragon = Dragon(Circle::random(&mut *rand));
         let intersect = dragons.iter().any(|d| d.intersect(&*dragon));
         if !intersect {
             dragons.push(dragon);
