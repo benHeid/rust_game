@@ -231,7 +231,8 @@ fn main() -> ! {
                         rgb_tupel = COLORS[rand.gen_range(0, 4)];
                         new_edge_color = Color::rgb(rgb_tupel.0, rgb_tupel.1, rgb_tupel.2);
                     }
-                    lcd.set_background_color(new_edge_color);
+                    edge_color = new_edge_color;
+                    lcd.set_background_color(edge_color);
                 }
             }
 
