@@ -13,6 +13,7 @@ extern crate alloc;
 
 const MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN: u8 = 15;
 const GAME_OVER: [u8; 300 * 75 * 4] = *include_bytes!("game_over.data");
+const COVER_SCREEN: [u8; 481 * 272 * 3] = *include_bytes!("coverScreen..data");
 
 use crate::dragons::Dragon;
 use crate::dragons::COLORS;
@@ -72,7 +73,6 @@ fn main() -> ! {
     let mut ltdc = peripherals.LTDC;
     let mut sai_2 = peripherals.SAI2;
 
-
     init::init_system_clock_216mhz(&mut rcc, &mut pwr, &mut flash);
     init::enable_gpio_ports(&mut rcc);
     //init::enable_syscfg(&mut rcc);
@@ -109,6 +109,18 @@ fn main() -> ! {
     let mut layer_2 = lcd.layer_2().unwrap();
     layer_1.clear();
     layer_2.clear();
+    //init variables for touch interactions
+    let mut i2c_3 = init::init_i2c_3(peripherals.I2C3, &mut rcc);
+    i2c_3.test_1();
+    i2c_3.test_2();
+    init::init_sai_2(&mut sai_2, &mut rcc);
+    init::init_wm8994(&mut i2c_3).expect("WM8994 init failed");
+    // touch initialization should be done after audio initialization, because the touch
+    // controller might not be ready yet
+    touch::check_family_id(&mut i2c_3).unwrap();
+    draw_cover_screen(&mut layer_1, &mut i2c_3);
+    layer_1.clear();
+    layer_2.clear();
     lcd::init_stdout(layer_2);
     let mut last_dragon_create = system_clock::ticks();
     let mut dragons: alloc::vec::Vec<Dragon> = vec![];
@@ -119,6 +131,7 @@ fn main() -> ! {
     lcd.set_background_color(edge_color);
     let mut played_time_in_seconds = 0;
     let mut left_time_in_seconds = 0;
+
     initiate_screen(
         &mut played_time_in_seconds,
         &mut left_time_in_seconds,
@@ -133,15 +146,6 @@ fn main() -> ! {
         d.render(&mut layer_1);
     }
 
-    //init variables for touch interactions
-    let mut i2c_3 = init::init_i2c_3(peripherals.I2C3, &mut rcc);
-    i2c_3.test_1();
-    i2c_3.test_2();
-    init::init_sai_2(&mut sai_2, &mut rcc);
-    init::init_wm8994(&mut i2c_3).expect("WM8994 init failed");
-    // touch initialization should be done after audio initialization, because the touch
-    // controller might not be ready yet
-    touch::check_family_id(&mut i2c_3).unwrap();
     loop {
         loop {
             let ticks = system_clock::ticks();
@@ -151,7 +155,8 @@ fn main() -> ! {
                 last_second = ticks;
                 print!(
                     "\r           {} seconds left      {}              ",
-                    left_time_in_seconds, dragons.len()
+                    left_time_in_seconds,
+                    dragons.len()
                 );
             }
             //evry half seconds roll for dragon creation
@@ -166,10 +171,10 @@ fn main() -> ! {
                         intersect = true;
                     }
                 }
-            if !intersect {
-                dragons.push(dragon);
-            }
-                
+                if !intersect {
+                    dragons.push(dragon);
+                }
+
                 //reset timer
                 last_dragon_create = ticks;
             }
@@ -312,6 +317,30 @@ fn initiate_screen(
         let intersect = dragons.iter().any(|d| d.intersect(&*dragon));
         if !intersect {
             dragons.push(dragon);
+        }
+    }
+}
+
+fn draw_cover_screen(
+    layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
+    mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
+) {
+    //wait for input
+    for y in 0..=272 {
+        for x in 0..=480 {
+            let i = x as usize;
+            let j = y as usize;
+            let r = COVER_SCREEN[3 * (x + y * 481) as usize];
+            let g = COVER_SCREEN[3 * (x + y * 481) as usize + 1];
+            let b = COVER_SCREEN[3 * (x + y * 481) as usize + 2];
+            // if wert < 25 {
+            layer.print_point_color_at(i, j, Color::rgb(r, g, b));
+            // }
+        }
+    }
+    while true {
+        if touch::touches(&mut i2c_3).unwrap().len() > 0 {
+            break;
         }
     }
 }
