@@ -11,7 +11,7 @@ extern crate stm32f7_discovery;
 #[macro_use]
 extern crate alloc;
 
-const MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN: u8 = 15;
+const MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN: usize = 15;
 const GAME_OVER: [u8; 300 * 75 * 4] = *include_bytes!("game_over.data");
 const COVER_SCREEN: [u8; 481 * 272 * 3] = *include_bytes!("coverScreen..data");
 
@@ -104,7 +104,6 @@ fn main() -> ! {
     //
     //// Initialize the allocator BEFORE you use it
     unsafe { ALLOCATOR.init(cortex_m_rt::heap_start() as usize, HEAP_SIZE) }
-    //lcd.set_background_color(Color::from_hex(0x660000));
 
     let mut layer_1 = lcd.layer_1().unwrap();
     let mut layer_2 = lcd.layer_2().unwrap();
@@ -161,14 +160,15 @@ fn main() -> ! {
             }
             //evry half seconds roll for dragon creation
             if ticks - last_dragon_create >= 10
-                && dragons.len() < MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN as usize
+                && dragons.len() < MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN
             {
                 //add dragon
                 let dragon = Dragon(Circle::random(&mut rand));
                 let mut intersect = false;
-                for d in &dragons.clone() {
+                for d in &dragons {
                     if d.intersect(&dragon) {
                         intersect = true;
+                        break;
                     }
                 }
                 if !intersect {
@@ -181,10 +181,10 @@ fn main() -> ! {
 
             if ticks - last_render >= 1 {
                 let mut updates: alloc::vec::Vec<Vector2d> = vec![];
-                for b in &dragons {
+                for dragon in &dragons {
                     let mut collision = false;
-                    for bb in &dragons {
-                        let n_speed: Option<Vector2d> = b.collision(bb);
+                    for dragon_o in &dragons {
+                        let n_speed: Option<Vector2d> = dragon.collision(dragon_o);
                         if !n_speed.is_none() {
                             updates.push(n_speed.unwrap());
                             collision = true;
@@ -192,33 +192,32 @@ fn main() -> ! {
                         }
                     }
                     if !collision {
-                        updates.push(b.vel);
+                        updates.push(dragon.vel);
                     }
                 }
                 for i in 0..dragons.len() {
                     dragons[i].update_speed(updates[i]);
                 }
-                for b in &mut dragons {
-                    b.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
-                    b.next();
-                    b.render(&mut layer_1);
+                for dragon in &mut dragons {
+                    dragon.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
+                    dragon.next();
+                    dragon.render(&mut layer_1);
                 }
                 last_render = ticks;
             }
             for touch in &touch::touches(&mut i2c_3).unwrap() {
                 //type cast for lcd
-                let t;
-                t = Vector2d {
+                let t = Vector2d {
                     x: touch.x as i16,
                     y: touch.y as i16,
                 };
                 let mut remove = alloc::vec::Vec::new();
                 // let mut remove: alloc::vec::Vec<usize> = alloc::vec::Vec::new();
                 for (i, d) in dragons.iter_mut().enumerate() {
-                    let (a, b) = d.hit(t, &mut edge_color);
-                    if a {
+                    let (hit, correct) = d.hit(t, &mut edge_color);
+                    if hit {
                         remove.push(i);
-                        if b {
+                        if correct {
                             //matching hit with edge color
                             left_time_in_seconds += 3;
                         } else {
@@ -263,7 +262,7 @@ fn game_over(
     mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
 ) {
     layer.clear();
-    let mut b = Box::new(200, 80, 240, 100, 0, 0, Color::from_hex(0x0066_0000));
+    let mut try_again_button = Box::new(200, 80, 240, 100, Color::from_hex(0x0066_0000));
 
     print!(
         "\rYour survived for {} seconds, hit button for new turn",
@@ -280,20 +279,23 @@ fn game_over(
         }
     }
 
-
-    b.render(&mut layer);
-    assert_eq!(b.write_str("try again", layer, Color::from_hex(0x00ff_ffff)).err(), None);
+    try_again_button.render(&mut layer);
+    assert_eq!(
+        try_again_button
+            .write_str("try again.... Button", layer, Color::from_hex(0x00ff_ffff))
+            .err(),
+        None
+    );
     let mut new_game = false;
     while !new_game {
         for touch in &touch::touches(&mut i2c_3).unwrap() {
             //type cast for lcd
-            let t;
-            t = Vector2d {
+            let t = Vector2d {
                 x: touch.x as i16,
                 y: touch.y as i16,
             };
-            if b.hit(t) {
-                b.derender(layer, Color::from_hex(0x00ff_ffff));
+            if try_again_button.hit(t) {
+                try_again_button.derender(layer, Color::from_hex(0x00ff_ffff));
                 new_game = true;
                 break;
             }
@@ -314,7 +316,7 @@ fn initiate_screen(
         }
     }
     *played_time_in_seconds = 0;
-    *left_time_in_seconds = 2;
+    *left_time_in_seconds = 20;
     dragons.clear();
     while dragons.len() <= 8 {
         let dragon = Dragon(Circle::random(&mut *rand));
