@@ -28,6 +28,10 @@ branch = "dhcp"
 default-features = false
 features = ["alloc", "socket-raw", "socket-udp", "socket-tcp", "socket-icmp", "proto-ipv4", "proto-dhcpv4"]
 
+[dependencies.font8x8]
+version = "0.2.4"
+default-features = false
+
 [dependencies.rand]
 version = "0.6"
 default-features = false

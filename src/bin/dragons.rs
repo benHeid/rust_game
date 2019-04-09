@@ -4,7 +4,8 @@ use libm;
 use rand::prelude::*;
 use rand::Rng;
 use stm32f7_discovery::lcd::Color;
-
+use stm32f7_discovery::lcd::Framebuffer;
+use core::{fmt};
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
 pub static COLORS: [(u8, u8, u8); 5] = [
     (255, 0, 0),
@@ -354,6 +355,45 @@ impl Box {
     //         self.pos.x += self.vel.x;
     //         self.pos.y += self.vel.y;
     //     }
+
+    pub fn write_str(&mut self, s: &str, layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>, col:stm32f7_discovery::lcd::Color) -> fmt::Result {
+        use font8x8::{self, UnicodeFonts};
+        let mut pos_x = self.pos.x + 20;
+        let mut pos_y = self.pos.y + 20 + 8;
+        for c in s.chars() {
+            match c {
+                ' '..='~' => {
+                    let rendered = font8x8::BASIC_FONTS
+                        .get(c)
+                        .expect("character not found in basic font");
+                    for (y, byte) in rendered.iter().enumerate() {
+                        for (x, bit) in (0..8).enumerate() {
+                            let color;
+                            if *byte & (1 << bit) == 0 { 
+                                color = self.col;
+                                } else { 
+                                    color = col;
+                            }
+                            layer
+                                .print_point_color_at(pos_x as usize + 2 * x, pos_y as usize + 2 * y, color);
+                            layer
+                                .print_point_color_at(pos_x as usize + 2 * x + 1, pos_y as usize + 2 *  y, color);
+                            layer
+                                .print_point_color_at(pos_x as usize + 2 * x, pos_y as usize + 2 * y + 1, color);
+                            layer
+                                .print_point_color_at(pos_x as usize + 2* x + 1, pos_y as usize + 2 * y + 1, color);                        }
+                    }
+                    pos_x += 16;
+                    if pos_x > self.pos.x + 20 + self.size as i16 - 16 {
+                        pos_x = self.pos.x + 20;
+                        pos_y += 16;
+                    }
+                }
+                _ => panic!("unprintable character"),
+            }
+        }
+        Ok(())
+    }
 }
 
 impl PartialEq for Box {
@@ -369,6 +409,7 @@ impl PartialEq for Box {
         false
     }
 }
+
 
 #[derive(Copy, Clone)]
 pub struct Vector2d {
