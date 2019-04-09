@@ -4,7 +4,6 @@ use libm;
 use rand::prelude::*;
 use rand::Rng;
 use stm32f7_discovery::lcd::Color;
-use stm32f7_discovery::lcd::Framebuffer;
 use core::{fmt};
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
 pub static COLORS: [(u8, u8, u8); 5] = [
@@ -368,12 +367,7 @@ impl Box {
                         .expect("character not found in basic font");
                     for (y, byte) in rendered.iter().enumerate() {
                         for (x, bit) in (0..8).enumerate() {
-                            let color;
-                            if *byte & (1 << bit) == 0 { 
-                                color = self.col;
-                                } else { 
-                                    color = col;
-                            }
+                            let color = if *byte & (1 << bit) == 0 { self.col } else { col };
                             layer
                                 .print_point_color_at(pos_x as usize + 2 * x, pos_y as usize + 2 * y, color);
                             layer

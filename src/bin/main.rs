@@ -282,7 +282,7 @@ fn game_over(
 
 
     b.render(&mut layer);
-    b.write_str("hello world", layer, Color::from_hex(0x00ff_ffff));
+    assert_eq!(b.write_str("hello world", layer, Color::from_hex(0x00ff_ffff)).err(), None);
     let mut new_game = false;
     while !new_game {
         for touch in &touch::touches(&mut i2c_3).unwrap() {
@@ -337,12 +337,10 @@ fn draw_cover_screen(
             let r = COVER_SCREEN[3 * (x + y * 481) as usize];
             let g = COVER_SCREEN[3 * (x + y * 481) as usize + 1];
             let b = COVER_SCREEN[3 * (x + y * 481) as usize + 2];
-            // if wert < 25 {
             layer.print_point_color_at(i, j, Color::rgb(r, g, b));
-            // }
         }
     }
-    while true {
+    loop {
         if touch::touches(&mut i2c_3).unwrap().len() > 0 {
             break;
         }
