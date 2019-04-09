@@ -158,6 +158,24 @@ impl Circle {
         }
     }
 
+fn _get_next(&self) -> Vector2d {
+        let mut pos_x = self.pos.x + self.vel.x;
+        let mut pos_y = self.pos.y + self.vel.y;
+        if self.radius as i16 + self.pos.x as i16 > 440 {
+            pos_x = 440 - self.radius as i16;
+        }
+        if pos_x - (self.radius as i16) < 0 {;
+            pos_x = self.radius as i16;
+        }
+        if self.radius as i16 + pos_y > 232{
+            pos_y = 252 - self.radius as i16;
+        }
+        if pos_y - (self.radius  as i16) < 0 {
+            pos_y = self.radius as i16;
+        }
+        Vector2d{x:pos_x, y:pos_y}
+}
+
     pub fn intersect(&self, b: &Circle) -> bool {
         if self.pos.x == b.pos.x
             && self.pos.y == b.pos.y
@@ -167,9 +185,11 @@ impl Circle {
         {
             return false;
         }
+        let pos_self =  self._get_next();
+        let pos_b = b._get_next();
 
-        i32::from(b.pos.x - self.pos.x + b.vel.x - self.vel.x)  * i32::from(b.pos.x - self.pos.x + b.vel.x - self.vel.x) +
-        i32::from(b.pos.y - self.pos.y + b.vel.y - self.vel.y)* i32::from(b.pos.y - self.pos.y + b.vel.y - self.vel.y)
+        i32::from(pos_b.x - pos_self.x) * i32::from(pos_b.x - pos_self.x)
+            + i32::from(pos_b.y - pos_self.y) * i32::from(pos_b.y - pos_self.y)
             < i32::from(b.radius + self.radius) * i32::from(b.radius + self.radius) + 9
     }
 
@@ -193,20 +213,25 @@ impl Circle {
             let height = 252;
             let width = 460;
             let offset = 20;
-            if self.radius as i16 + self.pos.x as i16 + self.vel.x > width - offset {
+            self.pos.x += self.vel.x;
+            self.pos.y += self.vel.y;
+            if self.radius as i16 + self.pos.x as i16 > width - offset {
                 self.vel.x *= -1;
+                self.pos.x = width - offset - self.radius as i16;
             }
-            if self.pos.x as i16 - self.radius as i16 + self.vel.x < 20 {
+            if self.pos.x as i16 - self.radius as i16 + self.vel.x < 0 {
                 self.vel.x *= -1;
+                self.pos.x = self.radius as i16;
             }
             if self.radius as i16 + self.pos.y as i16 + self.vel.y > height - offset{
                 self.vel.y *= -1;
+                self.pos.y = height- offset - self.radius as i16;
             }
-            if self.pos.y as i16 - self.radius  as i16 + self.vel.y < 20 {
+            if self.pos.y as i16 - self.radius  as i16 + self.vel.y < 0 {
                 self.vel.y *= -1;
+                self.pos.y = self.radius as i16;
             }
-            self.pos.x += self.vel.x;
-            self.pos.y += self.vel.y;
+
         }
     pub fn random(rand: &mut StdRng) -> Self {
         let tupel = COLORS[rand.gen_range(0, 4)];
