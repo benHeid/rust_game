@@ -282,6 +282,7 @@ fn game_over(
 
 
     b.render(&mut layer);
+    b.write_str("hello world", layer, Color::from_hex(0x00ff_ffff));
     let mut new_game = false;
     while !new_game {
         for touch in &touch::touches(&mut i2c_3).unwrap() {
@@ -313,7 +314,7 @@ fn initiate_screen(
         }
     }
     *played_time_in_seconds = 0;
-    *left_time_in_seconds = 20;
+    *left_time_in_seconds = 2;
     dragons.clear();
     while dragons.len() <= 8 {
         let dragon = Dragon(Circle::random(&mut *rand));
