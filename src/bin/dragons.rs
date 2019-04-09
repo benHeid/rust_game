@@ -5,7 +5,10 @@ use libm;
 use rand::prelude::*;
 use rand::Rng;
 use stm32f7_discovery::lcd::Color;
+use stm32f7_discovery::lcd::{HEIGHT, WIDTH};
 const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
+
+const OFFSET : i16 = 20;
 pub static COLORS: [(u8, u8, u8); 5] = [
     (255, 0, 0),
     (0, 128, 0),
@@ -52,8 +55,8 @@ impl Dragon {
     ) {
         for y in 0..2 * self.radius {
             for x in 0..2 * self.radius {
-                let i = 20 + x as usize + self.pos.x as usize - self.radius as usize;
-                let j = 20 + y as usize + self.pos.y as usize - self.radius as usize;
+                let i = OFFSET as usize + x as usize + self.pos.x as usize - self.radius as usize;
+                let j = OFFSET as usize + y as usize + self.pos.y as usize - self.radius as usize;
                 let value = IMG[2 * (x + y * 30) as usize + 1];
                 if value > 25 {
                     layer.print_point_color_at(i, j, self.col)
@@ -66,8 +69,8 @@ impl Dragon {
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
         bg_color: Color,
     ) {
-        for i in (20 + self.pos.x)..(20 + self.pos.x + 2 * self.radius as i16) {
-            for j in (20 + self.pos.y)..(20 + self.pos.y + 2 * self.radius as i16) {
+        for i in (OFFSET + self.pos.x)..(OFFSET + self.pos.x + 2 * self.radius as i16) {
+            for j in (OFFSET + self.pos.y)..(OFFSET + self.pos.y + 2 * self.radius as i16) {
                 layer.print_point_color_at(
                     i as usize - self.radius as usize,
                     j as usize - self.radius as usize,
@@ -78,8 +81,8 @@ impl Dragon {
     }
 
     pub fn hit(&mut self, hit: Vector2d, background_col: &mut Color) -> (bool, bool) {
-        if i32::from(hit.x - self.pos.x - 20) * i32::from(hit.x - self.pos.x - 20)
-            + i32::from(hit.y - self.pos.y - 20) * i32::from(hit.y - self.pos.y - 20)
+        if i32::from(hit.x - self.pos.x - OFFSET) * i32::from(hit.x - self.pos.x - OFFSET)
+            + i32::from(hit.y - self.pos.y - OFFSET) * i32::from(hit.y - self.pos.y - OFFSET)
             < i32::from(self.radius) * i32::from(self.radius)
         {
             if self.col.to_rgb() == background_col.to_rgb() {
@@ -108,10 +111,10 @@ impl Circle {
     //     for i in (0)..= self.radius as i16 {
     //         for j in (0)..= self.radius as i16 {
     //             if i * i + j * j <= (self.radius * self.radius) as i16 {
-    //                 layer.print_point_color_at(20 + self.pos.x as usize + i as usize, 20 + self.pos.y as usize + j as usize, self.col);
-    //                 layer.print_point_color_at(20 + self.pos.x as usize - i as usize, 20 + self.pos.y as usize + j as usize, self.col);
-    //                 layer.print_point_color_at(20 + self.pos.x as usize + i as usize, 20 + self.pos.y as usize - j as usize, self.col);
-    //                 layer.print_point_color_at(20 + self.pos.x as usize - i as usize, 20 + self.pos.y as usize - j as usize, self.col);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize + i as usize, OFFSET + self.pos.y as usize + j as usize, self.col);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize - i as usize, OFFSET + self.pos.y as usize + j as usize, self.col);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize + i as usize, OFFSET + self.pos.y as usize - j as usize, self.col);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize - i as usize, OFFSET + self.pos.y as usize - j as usize, self.col);
     //             }
     //         }
     //     }
@@ -124,10 +127,10 @@ impl Circle {
     //     for i in (0)..=(0 + self.radius as i16) {
     //         for j in (0)..=(0 + self.radius as i16) {
     //             if i * i + j * j <= (self.radius * self.radius) as i16 {
-    //                 layer.print_point_color_at(20 + self.pos.x as usize + i as usize, 20 + self.pos.y as usize + j as usize, bg_color);
-    //                 layer.print_point_color_at(20 + self.pos.x as usize - i as usize, 20 + self.pos.y as usize + j as usize, bg_color);
-    //                 layer.print_point_color_at(20 + self.pos.x as usize + i as usize, 20 + self.pos.y as usize - j as usize, bg_color);
-    //                 layer.print_point_color_at(20 + self.pos.x as usize - i as usize, 20 + self.pos.y as usize - j as usize, bg_color);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize + i as usize, OFFSET + self.pos.y as usize + j as usize, bg_color);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize - i as usize, OFFSET + self.pos.y as usize + j as usize, bg_color);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize + i as usize, OFFSET + self.pos.y as usize - j as usize, bg_color);
+    //                 layer.print_point_color_at(OFFSET + self.pos.x as usize - i as usize, OFFSET + self.pos.y as usize - j as usize, bg_color);
     //             }
     //         }
     //     }
@@ -166,16 +169,16 @@ impl Circle {
         let mut pos_y = self.pos.y + self.vel.y;
         let mut vel_x = self.vel.x;
         let mut vel_y = self.vel.y;
-        if self.radius as i16 + pos_x as i16 > 440 {
-            pos_x = 440 - self.radius as i16;
+        if self.radius as i16 + pos_x as i16 > WIDTH as i16 - 2 * OFFSET {
+            pos_x = WIDTH as i16 - 2 * OFFSET - self.radius as i16;
             vel_x *= -1;
         }
         if pos_x - (self.radius as i16) < 0 {
             pos_x = self.radius as i16;
             vel_x *= -1;
         }
-        if self.radius as i16 + pos_y > 232 {
-            pos_y = 232 - self.radius as i16;
+        if self.radius as i16 + pos_y > HEIGHT as i16 - 2 * OFFSET {
+            pos_y = HEIGHT as i16 - 2 * OFFSET - self.radius as i16;
             vel_y *= -1;
         }
         if pos_y - (self.radius as i16) < 0 {
