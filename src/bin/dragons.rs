@@ -24,7 +24,7 @@ pub struct Circle {
 
 #[derive(Copy, Clone)]
 pub struct Box {
-    pub size: u16,
+    pub size: Vector2d,
     pub pos: Vector2d,
     pub vel: Vector2d,
     pub col: Color,
@@ -235,9 +235,9 @@ fn _get_next(&self) -> (Vector2d, Vector2d) {
 }
 
 impl Box {
-    pub fn new(size: u16, x: i16, y: i16, vel_x: i16, vel_y: i16, vel_col: Color) -> Self {
+    pub fn new(size_x: i16, size_y: i16, x: i16, y: i16, vel_x: i16, vel_y: i16, vel_col: Color) -> Self {
         Self {
-            size,
+            size: Vector2d{x:size_x, y:size_y},
             pos: Vector2d { x, y },
             vel: Vector2d { x: vel_x, y: vel_y },
             col: vel_col,
@@ -247,8 +247,8 @@ impl Box {
         &mut self,
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
     ) {
-        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size as i16) {
-            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size as i16) {
+        for i in (20 + self.pos.x)..=(20 + self.pos.x + self.size.x as i16) {
+            for j in (20 + self.pos.y)..=(20 + self.pos.y + self.size.y as i16) {
                 layer.print_point_color_at(i as usize, j as usize, self.col)
             }
         }
@@ -259,18 +259,18 @@ impl Box {
         layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
         bg_color: Color,
     ) {
-        for i in (20 + self.pos.x)..(20 + self.pos.x + self.size as i16) {
-            for j in (20 + self.pos.y)..(20 + self.pos.y + self.size as i16) {
+        for i in (20 + self.pos.x)..(20 + self.pos.x + self.size.x as i16) {
+            for j in (20 + self.pos.y)..(20 + self.pos.y + self.size.y as i16) {
                 layer.print_point_color_at(i as usize, j as usize, bg_color)
             }
         }
     }
 
     pub fn hit(&mut self, hit: Vector2d) -> bool {
-        if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size as i16 + 20 {
+        if self.pos.x + 20 <= hit.x && hit.x <= self.pos.x + self.size.x as i16 + 20 {
             //set derender color of object
             self.col = Color::from_hex(0x00ff_ffff);
-            if self.pos.y + self.size as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20 {
+            if self.pos.y + self.size.y as i16 + 20 >= hit.y && hit.y >= self.pos.y + 20 {
                 return true;
             }
         }
@@ -378,7 +378,7 @@ impl Box {
                                 .print_point_color_at(pos_x as usize + 2* x + 1, pos_y as usize + 2 * y + 1, color);                        }
                     }
                     pos_x += 16;
-                    if pos_x > self.pos.x + 20 + self.size as i16 - 16 {
+                    if pos_x > self.pos.x + 20 + self.size.x as i16 - 16 {
                         pos_x = self.pos.x + 20;
                         pos_y += 16;
                     }
@@ -390,19 +390,19 @@ impl Box {
     }
 }
 
-impl PartialEq for Box {
-    fn eq(&self, b: &Box) -> bool {
-        if self.pos.x == b.pos.x
-            && self.pos.y == b.pos.y
-            && self.vel.x == b.vel.x
-            && self.vel.y == b.vel.y
-            && self.size == b.size
-        {
-            return true;
-        }
-        false
-    }
-}
+// impl PartialEq for Box {
+    // fn eq(&self, b: &Box) -> bool {
+        // if self.pos.x == b.pos.x
+            // && self.pos.y == b.pos.y
+            // && self.vel.x == b.vel.x
+            // && self.vel.y == b.vel.y
+            // && self.size == b.size
+        // {
+            // return true;
+        // }
+        // false
+    // }
+// }
 
 
 #[derive(Copy, Clone)]

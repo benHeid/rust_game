@@ -263,7 +263,7 @@ fn game_over(
     mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
 ) {
     layer.clear();
-    let mut b = Box::new(80, 240, 100, 0, 0, Color::from_hex(0x0066_0000));
+    let mut b = Box::new(200, 80, 240, 100, 0, 0, Color::from_hex(0x0066_0000));
 
     print!(
         "\rYour survived for {} seconds, hit button for new turn",
@@ -282,7 +282,7 @@ fn game_over(
 
 
     b.render(&mut layer);
-    assert_eq!(b.write_str("hello world", layer, Color::from_hex(0x00ff_ffff)).err(), None);
+    assert_eq!(b.write_str("try again", layer, Color::from_hex(0x00ff_ffff)).err(), None);
     let mut new_game = false;
     while !new_game {
         for touch in &touch::touches(&mut i2c_3).unwrap() {
