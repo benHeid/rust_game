@@ -6,9 +6,9 @@ use rand::prelude::*;
 use rand::Rng;
 use stm32f7_discovery::lcd::Color;
 use stm32f7_discovery::lcd::{HEIGHT, WIDTH};
-const IMG: [u8; 30 * 30 * 2] = *include_bytes!("dragonResized.data");
+const DRAGON: [u8; 30 * 30 * 2] = *include_bytes!("dragon_image.data");
 
-const OFFSET : i16 = 20;
+const OFFSET: i16 = 20;
 pub static COLORS: [(u8, u8, u8); 5] = [
     (255, 0, 0),
     (0, 128, 0),
@@ -57,7 +57,7 @@ impl Dragon {
             for x in 0..2 * self.radius {
                 let i = OFFSET as usize + x as usize + self.pos.x as usize - self.radius as usize;
                 let j = OFFSET as usize + y as usize + self.pos.y as usize - self.radius as usize;
-                let value = IMG[2 * (x + y * 30) as usize + 1];
+                let value = DRAGON[2 * (x + y * 30) as usize + 1];
                 if value > 25 {
                     layer.print_point_color_at(i, j, self.col)
                 }

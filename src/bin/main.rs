@@ -12,13 +12,12 @@ extern crate stm32f7_discovery;
 extern crate alloc;
 
 const MAX_SIMULTANEOUS_DRAGONS_ON_SCREEN: usize = 15;
-const GAME_OVER: [u8; 300 * 75 * 4] = *include_bytes!("game_over.data");
-const COVER_SCREEN: [u8; 481 * 272 * 3] = *include_bytes!("coverScreen..data");
+const COVER_SCREEN: [u8; 480 * 272 * 4] = *include_bytes!("cover_screen.data");
 
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout as AllocLayout;
 use core::panic::PanicInfo;
-use cortex_m_rt::{entry, exception};
+use cortex_m_rt::{entry, exception}; 
 use dragons::Dragon;
 use dragons::COLORS;
 use rand::Rng;
@@ -268,16 +267,16 @@ fn game_over(
         "\rYour survived for {} seconds, hit button for new turn",
         played_time_in_seconds
     );
-    for y in 0..75 {
-        for x in 0..300 {
-            let i = 90 + x as usize;
-            let j = 10 + y as usize;
-            let wert = GAME_OVER[4 * (x + y * 300) as usize];
-            if wert < 25 {
-                layer.print_point_color_at(i, j, Color::from_hex(0x00ff_0000))
-            }
-        }
-    }
+    // for y in 0..75 {
+    //     for x in 0..300 {
+    //         let i = 90 + x as usize;
+    //         let j = 10 + y as usize;
+    //         let wert = GAME_OVER[4 * (x + y * 300) as usize];
+    //         if wert < 25 {
+    //             layer.print_point_color_at(i, j, Color::from_hex(0x00ff_0000))
+    //         }
+    //     }
+    // }
 
     try_again_button.render(&mut layer);
     assert_eq!(
@@ -336,9 +335,9 @@ fn draw_cover_screen(
         for x in 0..=480 {
             let i = x as usize;
             let j = y as usize;
-            let r = COVER_SCREEN[3 * (x + y * 481) as usize];
-            let g = COVER_SCREEN[3 * (x + y * 481) as usize + 1];
-            let b = COVER_SCREEN[3 * (x + y * 481) as usize + 2];
+            let r = COVER_SCREEN[4 * (x + y * 480) as usize];
+            let g = COVER_SCREEN[4 * (x + y * 480) as usize + 1];
+            let b = COVER_SCREEN[4 * (x + y * 480) as usize + 2];
             layer.print_point_color_at(i, j, Color::rgb(r, g, b));
         }
     }
