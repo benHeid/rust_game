@@ -300,7 +300,7 @@ impl Box {
         let string_len = s.len();
         let num_line =
             libm::ceilf(f32::from(string_len as i16 * 16) / f32::from(self.size.x)) as i16;
-        let mut pos_x = self.pos.x;
+        let mut pos_x = self.pos.x + 5;
         let mut pos_y = self.pos.y - 8 * num_line / 2 + self.size.y as i16 / 2 - 4;
         for c in s.chars() {
             match c {
@@ -339,7 +339,7 @@ impl Box {
                     }
                     pos_x += 16;
                     if pos_x > self.pos.x + self.size.x as i16 - 16 {
-                        pos_x = self.pos.x;
+                        pos_x = self.pos.x + 5;
                         pos_y += 16;
                     }
                 }

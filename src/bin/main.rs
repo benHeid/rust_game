@@ -261,30 +261,36 @@ fn game_over(
     mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
 ) {
     layer.clear();
-    let mut try_again_button = Box::new(200, 80, 240, 100, Color::from_hex(0x0066_0000));
+    for y in 0..=272 {
+        for x in 0..=480 {
+            let i = x as usize;
+            let j = y as usize;
+            let r = COVER_SCREEN[4 * (x + y * 480) as usize];
+            let g = COVER_SCREEN[4 * (x + y * 480) as usize + 1];
+            let b = COVER_SCREEN[4 * (x + y * 480) as usize + 2];
+            layer.print_point_color_at(i, j, Color::rgb(255, g, b));
+        }
+    }
 
-    print!(
-        "\rYour survived for {} seconds, hit button for new turn",
-        played_time_in_seconds
-    );
-    // for y in 0..75 {
-    //     for x in 0..300 {
-    //         let i = 90 + x as usize;
-    //         let j = 10 + y as usize;
-    //         let wert = GAME_OVER[4 * (x + y * 300) as usize];
-    //         if wert < 25 {
-    //             layer.print_point_color_at(i, j, Color::from_hex(0x00ff_0000))
-    //         }
-    //     }
-    // }
-
-    try_again_button.render(&mut layer);
+    let mut score = Box::new(280, 60, 100, 60, Color::from_hex(0x00ff_ffff));
+    score.render(&mut layer);
     assert_eq!(
-        try_again_button
-            .write_str("try again.... Button", layer, Color::from_hex(0x00ff_ffff))
+        score
+            .write_str(&format!("Your Score is {}",played_time_in_seconds), layer, Color::from_hex(0x0000_0000))
             .err(),
         None
     );
+
+    let mut try_again_button = Box::new(280, 60, 100, 160, Color::from_hex(0x00ff_ffff));
+    try_again_button.render(&mut layer);
+    assert_eq!(
+        try_again_button
+            .write_str("try again...   :)", layer, Color::from_hex(0x0000_0000))
+            .err(),
+        None
+    );
+
+
     let mut new_game = false;
     while !new_game {
         for touch in &touch::touches(&mut i2c_3).unwrap() {
@@ -309,6 +315,7 @@ fn initiate_screen(
     rand: &mut rand::rngs::StdRng,
     layer_1: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
 ) {
+    layer_1.clear();
     for i in OFFSET..=WIDTH {
         for j in OFFSET..=HEIGHT {
             layer_1.print_point_color_at(i, j, Color::from_hex(0x00ff_ffff));
@@ -330,6 +337,7 @@ fn draw_cover_screen(
     layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
     mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
 ) {
+
     //wait for input
     for y in 0..=272 {
         for x in 0..=480 {
@@ -341,6 +349,14 @@ fn draw_cover_screen(
             layer.print_point_color_at(i, j, Color::rgb(r, g, b));
         }
     }
+    let mut title = Box::new(240, 60, 120, 100, Color::from_hex(0x00ff_ffff));
+    title.render(layer);
+    assert_eq!(
+        title
+            .write_str("Dragon Slayer", layer, Color::from_hex(0x0000_0000))
+            .err(),
+        None
+    );
     loop {
         if touch::touches(&mut i2c_3).unwrap().len() > 0 {
             break;
