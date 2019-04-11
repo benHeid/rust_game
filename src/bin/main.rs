@@ -209,7 +209,11 @@ fn main() -> ! {
                 for dragon in &mut dragons {
                     dragon.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
                     dragon.next();
-                    dragon.render(&mut layer_1);
+                    let punish = if punish_factor < 8 {punish_factor} else {8};
+
+                    if ticks % (punish as usize) < 4 {
+                        dragon.render(&mut layer_1);
+                    }
                 }
                 last_render = ticks;
             }
@@ -248,7 +252,7 @@ fn main() -> ! {
                 }
             }
 
-            if left_time_in_seconds == 0 {
+            if left_time_in_seconds <= 0 {
                 break;
             }
         }
