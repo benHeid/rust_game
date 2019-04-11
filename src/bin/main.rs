@@ -209,9 +209,9 @@ fn main() -> ! {
                 for dragon in &mut dragons {
                     dragon.derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
                     dragon.next();
-                    let punish = if punish_factor < 8 {punish_factor} else {8};
+                    let punish = if punish_factor < 10 {punish_factor} else {10};
 
-                    if ticks % (punish as usize) < 4 {
+                    if ticks % (punish as usize) < 3 || punish < 4 {
                         dragon.render(&mut layer_1);
                     }
                 }
