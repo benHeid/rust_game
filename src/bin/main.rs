@@ -243,7 +243,9 @@ fn main() -> ! {
                         .remove(*i)
                         .derender(&mut layer_1, Color::from_hex(0x00ff_ffff));
                     let mut new_edge_color = edge_color;
-                    while new_edge_color.to_rgb() == edge_color.to_rgb() {
+                    let current_colors: alloc::vec::Vec<Color> = dragons.iter().map(|x| x.col).collect();
+
+                    while new_edge_color.to_rgb() == edge_color.to_rgb() || ! current_colors.contains(&new_edge_color){
                         rgb_tupel = COLORS[rand.gen_range(0, 4)];
                         new_edge_color = Color::rgb(rgb_tupel.0, rgb_tupel.1, rgb_tupel.2);
                     }
@@ -353,3 +355,4 @@ fn draw_cover_screen(
         }
     }
 }
+
