@@ -130,10 +130,12 @@ fn main() -> ! {
     lcd.set_background_color(edge_color);
     let mut played_time_in_seconds = 0;
     let mut left_time_in_seconds = 0;
+    let mut punish_factor = 1;
 
     initiate_screen(
         &mut played_time_in_seconds,
         &mut left_time_in_seconds,
+        &mut punish_factor,
         &mut dragons,
         &mut rand,
         &mut layer_1,
@@ -141,6 +143,7 @@ fn main() -> ! {
 
     let mut last_render = system_clock::ticks();
     let mut last_second = system_clock::ticks();
+    let mut dificult_tick = system_clock::ticks();
     for d in &mut dragons {
         d.render(&mut layer_1);
     }
@@ -148,12 +151,18 @@ fn main() -> ! {
     loop {
         loop {
             let ticks = system_clock::ticks();
+            
+            if ticks - dificult_tick >= 60 {
+                punish_factor += 1;
+                dificult_tick = ticks;
+            }            
+            
             if ticks - last_second >= 20 {
                 left_time_in_seconds -= 1;
                 played_time_in_seconds += 1;
                 last_second = ticks;
                 print!(
-                    "\r           {} seconds left                   ",
+                    "\r           {} seconds left    ",
                     left_time_in_seconds
                 );
             }
@@ -218,10 +227,10 @@ fn main() -> ! {
                         remove.push(i);
                         if correct {
                             //matching hit with edge color
-                            left_time_in_seconds += 3;
+                            left_time_in_seconds += 1;
                         } else {
                             //non matching hit
-                            left_time_in_seconds -= 1;
+                            left_time_in_seconds -= punish_factor;
                         }
                     }
                 }
@@ -248,6 +257,7 @@ fn main() -> ! {
         initiate_screen(
             &mut played_time_in_seconds,
             &mut left_time_in_seconds,
+            &mut punish_factor,
             &mut dragons,
             &mut rand,
             &mut layer_1,
@@ -256,40 +266,22 @@ fn main() -> ! {
 }
 
 fn game_over(
-    mut layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
-    played_time_in_seconds: u8,
+    layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
+    played_time_in_seconds: u16,
     mut i2c_3: &mut stm32f7_discovery::i2c::I2C<stm32f7::stm32f7x6::I2C3>,
 ) {
     layer.clear();
-    for y in 0..=272 {
-        for x in 0..=480 {
-            let i = x as usize;
-            let j = y as usize;
-            let r = COVER_SCREEN[4 * (x + y * 480) as usize];
+    for y in 0..272 {
+        for x in 0..480 {
             let g = COVER_SCREEN[4 * (x + y * 480) as usize + 1];
             let b = COVER_SCREEN[4 * (x + y * 480) as usize + 2];
-            layer.print_point_color_at(i, j, Color::rgb(255, g, b));
+            layer.print_point_color_at(x as usize, y as usize, Color::rgb(255, g, b));
         }
     }
 
-    let mut score = Box::new(280, 60, 100, 60, Color::from_hex(0x00ff_ffff));
-    score.render(&mut layer);
-    assert_eq!(
-        score
-            .write_str(&format!("Your Score is {}",played_time_in_seconds), layer, Color::from_hex(0x0000_0000))
-            .err(),
-        None
-    );
+    let _score = Box::text_box((280, 60), (100, 60), Color::from_hex(0x00ff_ffff), &format!("Your Score is {}",played_time_in_seconds), Color::from_hex(0x0000_0000), layer);
 
-    let mut try_again_button = Box::new(280, 60, 100, 160, Color::from_hex(0x00ff_ffff));
-    try_again_button.render(&mut layer);
-    assert_eq!(
-        try_again_button
-            .write_str("try again...   :)", layer, Color::from_hex(0x0000_0000))
-            .err(),
-        None
-    );
-
+    let mut try_again_button = Box::text_box((280, 60), (100, 160), Color::from_hex(0x00ff_ffff),"try again...   :)", Color::from_hex(0x0000_0000), layer);
 
     let mut new_game = false;
     while !new_game {
@@ -309,8 +301,9 @@ fn game_over(
 }
 
 fn initiate_screen(
-    played_time_in_seconds: &mut u8,
-    left_time_in_seconds: &mut u8,
+    played_time_in_seconds: &mut u16,
+    left_time_in_seconds: &mut i16,
+    punish_factor: &mut i16,
     dragons: &mut alloc::vec::Vec<Dragon>,
     rand: &mut rand::rngs::StdRng,
     layer_1: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>,
@@ -321,6 +314,7 @@ fn initiate_screen(
             layer_1.print_point_color_at(i, j, Color::from_hex(0x00ff_ffff));
         }
     }
+    *punish_factor = 1;
     *played_time_in_seconds = 0;
     *left_time_in_seconds = 20;
     dragons.clear();
@@ -339,24 +333,16 @@ fn draw_cover_screen(
 ) {
 
     //wait for input
-    for y in 0..=272 {
-        for x in 0..=480 {
-            let i = x as usize;
-            let j = y as usize;
+    for y in 0..272 {
+        for x in 0..480 {
             let r = COVER_SCREEN[4 * (x + y * 480) as usize];
             let g = COVER_SCREEN[4 * (x + y * 480) as usize + 1];
             let b = COVER_SCREEN[4 * (x + y * 480) as usize + 2];
-            layer.print_point_color_at(i, j, Color::rgb(r, g, b));
+            layer.print_point_color_at(x as usize, y as usize, Color::rgb(r, g, b));
         }
     }
-    let mut title = Box::new(240, 60, 120, 100, Color::from_hex(0x00ff_ffff));
-    title.render(layer);
-    assert_eq!(
-        title
-            .write_str("Dragon Slayer", layer, Color::from_hex(0x0000_0000))
-            .err(),
-        None
-    );
+    let _title = Box::text_box((240, 60), (120, 100), Color::from_hex(0x00ff_ffff), "Dragon Slayer", Color::from_hex(0x0000_0000), layer);
+
     loop {
         if touch::touches(&mut i2c_3).unwrap().len() > 0 {
             break;

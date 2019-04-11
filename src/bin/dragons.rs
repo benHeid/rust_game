@@ -245,15 +245,22 @@ impl Circle {
 }
 
 impl Box {
-    pub fn new(size_x: i16, size_y: i16, x: i16, y: i16, vel_col: Color) -> Self {
+    pub fn new(size_x: i16, size_y: i16, x: i16, y: i16, col: Color) -> Self {
         Self {
             size: Vector2d {
                 x: size_x,
                 y: size_y,
             },
             pos: Vector2d { x, y },
-            col: vel_col,
+            col,
         }
+    }
+
+    pub fn text_box(size: (i16, i16), pos: (i16, i16), col: Color, text:&str, text_col:Color, layer: &mut stm32f7_discovery::lcd::Layer<stm32f7_discovery::lcd::FramebufferArgb8888>) -> Self {
+        let mut text_box = Box::new(size.0, size.1, pos.0, pos.1, col);
+        text_box.render(layer);
+        assert_eq!(text_box.write_str(text, layer, text_col).err(), None);
+        text_box
     }
 
     pub fn render(
